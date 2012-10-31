@@ -322,7 +322,7 @@ ConfYamlParse(yaml_parser_t *parser, ConfNode *parent, int inseq)
                 if (seq_node->name == NULL)
                     return -1;
                 snprintf(seq_node->name, DEFAULT_NAME_LEN, "%d", seq_idx++);
-                if (NULL == (seq_node->val = ExpandEnvVar(value))) 
+                if (NULL == (seq_node->val = ConfExpandEnvVar(value))) 
                   seq_node->val = SCStrdup(value);
                 TAILQ_INSERT_TAIL(&parent->head, seq_node, next);
             }
@@ -387,7 +387,7 @@ ConfYamlParse(yaml_parser_t *parser, ConfNode *parent, int inseq)
                     else if (node->allow_override) {
                         if (node->val != NULL)
                             SCFree(node->val);
-                        if (NULL == (node->val = ExpandEnvVar(value))) 
+                        if (NULL == (node->val = ConfExpandEnvVar(value))) 
                           node->val = SCStrdup(value);
                     }
                     state = CONF_KEY;
