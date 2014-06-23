@@ -1802,6 +1802,7 @@ SURICATA_BUILD_CONF="Suricata Configuration:
   Non-bundled htp:                         ${enable_non_bundled_htp}
   Old barnyard2 support:                   ${enable_old_barnyard2}
   CUDA enabled:                            ${enable_cuda}
+  GTP-U decoding:                          ${enable_gtp_decoder}
 
   Suricatasc install:                      ${enable_python}
 

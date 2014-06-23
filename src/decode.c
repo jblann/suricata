@@ -403,6 +403,7 @@ void DecodeRegisterPerfCounters(DecodeThreadVars *dtv, ThreadVars *tv)
     dtv->counter_avg_pkt_size = StatsRegisterAvgCounter("decoder.avg_pkt_size", tv);
     dtv->counter_max_pkt_size = StatsRegisterMaxCounter("decoder.max_pkt_size", tv);
     dtv->counter_erspan = StatsRegisterMaxCounter("decoder.erspan", tv);
+    dtv->counter_gtp_data = StatsRegisterMaxCounter("decoder.gtp_data", tv);
 
     dtv->counter_defrag_ipv4_fragments =
         StatsRegisterCounter("defrag.ipv4.fragments", tv);
@@ -479,6 +480,9 @@ DecodeThreadVars *DecodeThreadVarsAlloc(ThreadVars *tv)
     }
     SCLogDebug("vlan tracking is %s", dtv->vlan_disabled == 0 ? "enabled" : "disabled");
 
+    ConfGetBool("gtp.data.decode", &dtv->gtp_enabled);
+    SCLogDebug("gtp decoding is %s", dtv->gtp_enabled ? "enabled" : "disabled");
+
     return dtv;
 }
 
@@ -532,6 +536,9 @@ const char *PktSrcToString(enum PktSrcEnum pkt_src)
             break;
         case PKT_SRC_DECODER_TEREDO:
             pkt_src_str = "teredo tunnel";
+            break;
+        case PKT_SRC_DECODER_GTP:
+            pkt_src_str = "gtp tunnel";
             break;
         case PKT_SRC_DEFRAG:
             pkt_src_str = "defrag";

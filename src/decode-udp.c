@@ -34,6 +34,7 @@
 #include "decode.h"
 #include "decode-udp.h"
 #include "decode-teredo.h"
+#include "decode-gtp.h"
 #include "decode-events.h"
 #include "util-unittest.h"
 #include "util-debug.h"
@@ -86,6 +87,12 @@ int DecodeUDP(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p, uint8_t *pkt, ui
         /* Here we have a Teredo packet and don't need to handle app
          * layer */
         FlowHandlePacket(tv, dtv, p);
+        return TM_ECODE_OK;
+    }
+
+    if (dtv->gtp_enabled && UDP_GET_DST_PORT(p) == GTP_U_PORT &&
+        unlikely(DecodeGTP(tv, dtv, p, p->payload,
+                p->payload_len, pq) == TM_ECODE_OK)) {
         return TM_ECODE_OK;
     }
 

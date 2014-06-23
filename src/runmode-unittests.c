@@ -60,6 +60,8 @@
 #include "flow-bit.h"
 #include "pkt-var.h"
 
+#include "decode-gtp.h"
+
 #include "host.h"
 #include "host-bit.h"
 #include "ippair.h"
@@ -218,6 +220,7 @@ void RunUnittests(int list_unittests, char *regex_arg)
     DecodeGRERegisterTests();
     DecodeAsn1RegisterTests();
     DecodeMPLSRegisterTests();
+    DecodeGTPRegisterUnitTests();
     AppLayerProtoDetectUnittestsRegister();
     ConfRegisterTests();
     ConfYamlRegisterTests();
