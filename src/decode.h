@@ -51,6 +51,7 @@ enum PktSrcEnum {
     PKT_SRC_DECODER_IPV4,
     PKT_SRC_DECODER_IPV6,
     PKT_SRC_DECODER_TEREDO,
+    PKT_SRC_DECODER_GTP,
     PKT_SRC_DEFRAG,
     PKT_SRC_STREAM_TCP_STREAM_END_PSEUDO,
     PKT_SRC_FFR,
@@ -621,6 +622,7 @@ typedef struct DecodeThreadVars_
     AppLayerThreadCtx *app_tctx;
 
     int vlan_disabled;
+    int gtp_enabled;
 
     /** stats/counters */
     uint16_t counter_pkts;
@@ -652,6 +654,7 @@ typedef struct DecodeThreadVars_
     uint16_t counter_ipv4inipv6;
     uint16_t counter_ipv6inipv6;
     uint16_t counter_erspan;
+    uint16_t counter_gtp_data;
 
     /** frag stats - defrag runs in the context of the decoder. */
     uint16_t counter_defrag_ipv4_fragments;
