@@ -287,6 +287,22 @@ json_t *CreateJSONHeader(Packet *p, int direction_sensitive, char *event_type)
         }
     }
 
+    /* MPLS. */
+    if (p->mplsh != NULL) {
+        uint32_t shim;
+        uint8_t *mplsh = p->mplsh;
+        json_t *js_mpls = json_array();
+        if (unlikely(js_mpls != NULL)) {
+            do {
+                shim = *(uint32_t *)mplsh;
+                json_array_append_new(js_mpls, json_integer(MPLS_LABEL(shim)));
+                mplsh += MPLS_HEADER_LEN;
+            } while (MPLS_BOTTOM(shim) == 0 &&
+                MPLS_LABEL(shim) > MPLS_MAX_RESERVED_LABEL);
+            json_object_set_new(js, "mpls", js_mpls);
+        }
+    }
+
     /* tuple */
     json_object_set_new(js, "src_ip", json_string(srcip));
     switch(p->proto) {

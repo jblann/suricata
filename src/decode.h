@@ -475,6 +475,8 @@ typedef struct Packet_
 
     VLANHdr *vlanh[2];
 
+    uint8_t *mplsh;
+
     /* ptr to the payload of the packet
      * with it's length. */
     uint8_t *payload;

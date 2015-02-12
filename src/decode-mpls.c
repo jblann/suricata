@@ -27,17 +27,12 @@
 #include "decode.h"
 #include "util-unittest.h"
 
-#define MPLS_HEADER_LEN         4
 #define MPLS_PW_LEN             4
-#define MPLS_MAX_RESERVED_LABEL 15
 
 #define MPLS_LABEL_IPV4         0
 #define MPLS_LABEL_ROUTER_ALERT 1
 #define MPLS_LABEL_IPV6         2
 #define MPLS_LABEL_NULL         3
-
-#define MPLS_LABEL(shim)        ntohl(shim) >> 12
-#define MPLS_BOTTOM(shim)       ((ntohl(shim) >> 8) & 0x1)
 
 /* Inner protocol guessing values. */
 #define MPLS_PROTO_ETHERNET_PW  0
@@ -57,6 +52,9 @@ int DecodeMPLS(ThreadVars *tv, DecodeThreadVars *dtv, Packet *p, uint8_t *pkt,
         if (len < MPLS_HEADER_LEN) {
             ENGINE_SET_INVALID_EVENT(p, MPLS_HEADER_TOO_SMALL);
             return TM_ECODE_FAILED;
+        }
+        if (p->mplsh == NULL) {
+            p->mplsh = pkt;
         }
         shim = *(uint32_t *)pkt;
         pkt += MPLS_HEADER_LEN;

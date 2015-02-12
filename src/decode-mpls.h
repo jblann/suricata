@@ -29,6 +29,12 @@
 #define ETHERNET_TYPE_MPLS_UNICAST   0x8847
 #define ETHERNET_TYPE_MPLS_MULTICAST 0x8848
 
+#define MPLS_HEADER_LEN         4
+#define MPLS_MAX_RESERVED_LABEL 15
+
+#define MPLS_LABEL(shim)        ntohl(shim) >> 12
+#define MPLS_BOTTOM(shim)       ((ntohl(shim) >> 8) & 0x1)
+
 void DecodeMPLSRegisterTests(void);
 
 #endif /* !__DECODE_MPLS_H__ */
