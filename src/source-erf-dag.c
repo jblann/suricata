@@ -113,6 +113,8 @@ typedef struct ErfDagThreadVars_ {
     uint8_t *top;
     uint8_t *btm;
 
+    uint8_t dag_port_swap_table[4];
+
 } ErfDagThreadVars;
 
 static inline TmEcode ProcessErfDagRecords(ErfDagThreadVars *ewtn, uint8_t *top,
@@ -127,6 +129,14 @@ TmEcode DecodeErfDagThreadDeinit(ThreadVars *tv, void *data);
 TmEcode DecodeErfDag(ThreadVars *, Packet *, void *, PacketQueue *,
     PacketQueue *);
 void ReceiveErfDagCloseStream(int dagfd, int stream);
+
+static void DagInitPortSwapTable(ErfDagThreadVars *dtv)
+{
+    dtv->dag_port_swap_table[0] = 1;
+    dtv->dag_port_swap_table[1] = 0;
+    dtv->dag_port_swap_table[2] = 3;
+    dtv->dag_port_swap_table[3] = 2;
+}
 
 /**
  * \brief Register the ERF file receiver (reader) module.
@@ -190,14 +200,14 @@ ReceiveErfDagThreadInit(ThreadVars *tv, void *initdata, void **data)
         SCReturnInt(TM_ECODE_FAILED);
     }
 
-    ErfDagThreadVars *ewtn = SCMalloc(sizeof(ErfDagThreadVars));
+    ErfDagThreadVars *ewtn = SCCalloc(1, sizeof(ErfDagThreadVars));
     if (unlikely(ewtn == NULL)) {
         SCLogError(SC_ERR_MEM_ALLOC,
             "Failed to allocate memory for ERF DAG thread vars.");
         exit(EXIT_FAILURE);
     }
 
-    memset(ewtn, 0, sizeof(*ewtn));
+    DagInitPortSwapTable(ewtn);
 
     /* dag_parse_name will return a DAG device name and stream number
      * to open for this thread.
@@ -283,6 +293,22 @@ ReceiveErfDagThreadInit(ThreadVars *tv, void *initdata, void **data)
 
     SCLogInfo("Attached and started stream: %d on DAG: %s",
         ewtn->dagstream, ewtn->dagname);
+
+#if 1 /* Inline. */
+    if (dag_attach_stream(ewtn->dagfd, 1, 0, 0) < 0) {
+        SCLogError(SC_ERR_ERF_DAG_STREAM_OPEN_FAILED,
+            "Failed to attach DAG stream %s:%d", ewtn->dagname, 1);
+        SCFree(ewtn);
+        SCReturnInt(TM_ECODE_FAILED);
+    }
+
+    if (dag_start_stream(ewtn->dagfd, 1) < 0) {
+        SCLogError(SC_ERR_ERF_DAG_STREAM_OPEN_FAILED,
+            "Failed to start DAG stream %s:%d", ewtn->dagname, 1);
+        SCFree(ewtn);
+        SCReturnInt(TM_ECODE_FAILED);
+    }
+#endif
 
     /*
      * Initialise DAG Polling parameters.
@@ -542,6 +568,19 @@ ProcessErfDagRecord(ErfDagThreadVars *ewtn, char *prec)
         TmqhOutputPacketpool(ewtn->tv, p);
         SCReturnInt(TM_ECODE_FAILED);
     }
+
+#if 1 /* Inline. */
+    if (!PACKET_TEST_ACTION(p, ACTION_DROP)) {
+        void *write_buf = dag_tx_get_stream_space64(ewtn->dagfd, 1, rlen);
+        if (write_buf == NULL) {
+            fprintf(stderr, "failed to allocate write space.");
+            exit(1);
+        }
+        dr->flags.iface = ewtn->dag_port_swap_table[dr->flags.iface];
+        memcpy(write_buf, prec, rlen);
+        dag_tx_stream_commit_bytes64(ewtn->dagfd, 1, rlen);
+    }
+#endif
 
     SCReturnInt(TM_ECODE_OK);
 }
