@@ -39,7 +39,51 @@ static int DagConfigGetThreadCount(void *conf)
 
 static void *ParseDagConfig(const char *iface)
 {
-    return (void *)iface;
+    ConfNode *if_root;
+    ConfNode *if_default = NULL;
+    ConfNode *dag_packet_node;
+    ErfDagIfaceConfig *dconf = SCMalloc(sizeof(*dconf));
+    char *copymodestr;
+
+    if (unlikely(dconf == NULL)) {
+        return NULL;
+    }
+
+    if (iface == NULL) {
+        SCFree(dconf);
+        return NULL;
+    }
+
+    strlcpy(dconf->iface, iface, sizeof(dconf->iface));
+
+    dconf->copy_mode = DAG_COPY_MODE_NONE;
+
+    /* Find initial node */
+    dag_packet_node = ConfGetNode("dag-packet");
+    if (dag_packet_node == NULL) {
+        SCLogInfo("Unable to find dag-packet config using default value");
+        return dconf;
+    }
+
+    if_root = ConfNodeLookupKeyValue(dag_packet_node, "interface", iface);
+
+    if_default = ConfNodeLookupKeyValue(dag_packet_node, "interface", "default");
+
+    if (ConfGetChildValueWithDefault(if_root, if_default, "copy-mode", &copymodestr) == 1) {
+        if (strcmp(copymodestr, "ips") == 0) {
+            SCLogInfo("ERF-DAG IPS mode activated %s",
+                    iface);
+            dconf->copy_mode = DAG_COPY_MODE_IPS;
+        } else if (strcmp(copymodestr, "tap") == 0) {
+            SCLogInfo("ERF-DAG TAP mode activated %s",
+                    iface);
+            aconf->copy_mode = DAG_COPY_MODE_TAP;
+        } else {
+            SCLogInfo("Invalid mode (not in tap, ips)");
+        }
+    }
+
+    return dconf;
 }
 
 const char *RunModeErfDagGetDefaultMode(void)
@@ -49,7 +93,7 @@ const char *RunModeErfDagGetDefaultMode(void)
 
 void RunModeErfDagRegister(void)
 {
-    default_mode = "autofp";
+    default_mode = "workers";
 
     RunModeRegisterNewRunMode(RUNMODE_DAG, "autofp",
         "Multi threaded DAG mode.  Packets from "

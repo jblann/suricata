@@ -102,6 +102,8 @@ typedef struct ErfDagThreadVars_ {
 
     struct timeval maxwait, poll;   /* Could possibly be made static */
 
+    int copy_mode;
+
     LiveDevice *livedev;
 
     uint64_t bytes;
@@ -183,10 +185,11 @@ ReceiveErfDagThreadInit(ThreadVars *tv, void *initdata, void **data)
 {
     SCEnter();
     int stream_count = 0;
+    DagIfaceConfig *dagconfig = initdata;    
 
     if (initdata == NULL) {
         SCLogError(SC_ERR_INVALID_ARGUMENT,
-            "Error: No DAG interface provided.");
+            "initdata == NULL");
         SCReturnInt(TM_ECODE_FAILED);
     }
 
@@ -202,7 +205,7 @@ ReceiveErfDagThreadInit(ThreadVars *tv, void *initdata, void **data)
     /* dag_parse_name will return a DAG device name and stream number
      * to open for this thread.
      */
-    if (dag_parse_name(initdata, ewtn->dagname, DAGNAME_BUFSIZE,
+    if (dag_parse_name(dagconfig->iface, ewtn->dagname, DAGNAME_BUFSIZE,
             &ewtn->dagstream) < 0) {
         SCLogError(SC_ERR_INVALID_ARGUMENT,
             "Failed to parse DAG interface: %s",
@@ -251,8 +254,8 @@ ReceiveErfDagThreadInit(ThreadVars *tv, void *initdata, void **data)
         SCReturnInt(TM_ECODE_FAILED);
     }
 
-    /* If we are transmitting into a soft DAG card then set the stream
-     * to act in reverse mode.
+    /* If we are receiving from a transmit stream (odd number), then assume it is
+     * a vDAG and set the stream to act in reverse mode.
      */
     if (0 != (ewtn->dagstream & 0x01)) {
         /* Setting reverse mode for using with soft dag from daemon side */
@@ -269,10 +272,25 @@ ReceiveErfDagThreadInit(ThreadVars *tv, void *initdata, void **data)
         SCLogError(SC_ERR_ERF_DAG_STREAM_OPEN_FAILED,
             "Failed to open DAG stream: %d, DAG: %s",
             ewtn->dagstream, ewtn->dagname);
+	dag_close(ewtn->dagfd);
         SCFree(ewtn);
         SCReturnInt(TM_ECODE_FAILED);
     }
 
+    ewtn->copy_mode = dagconfig->copy_mode;
+    if (ewtn->copy_mode != AFP_COPY_MODE_NONE) {
+	if (dag_attach_stream(ewtn->dagfd, 1, 0, 0) < 0) {
+	    SCLogError(SC_ERR_ERF_DAG_STREAM_OPEN_FAILED,
+		       "Failed to open Tx DAG stream: 1, DAG: %s",
+		       ewtn->dagname);
+	    dag_detach_stream(ewtn->dagfd, ewtn->dagstream);
+	    dag_close(ewtn->dagfd);
+	    SCFree(ewtn);
+	    SCReturnInt(TM_ECODE_FAILED);
+	}
+    }
+
+    /* Start receive stream */
     if (dag_start_stream(ewtn->dagfd, ewtn->dagstream) < 0) {
         SCLogError(SC_ERR_ERF_DAG_STREAM_START_FAILED,
             "Failed to start DAG stream: %d, DAG: %s",
@@ -583,6 +601,10 @@ ReceiveErfDagThreadDeinit(ThreadVars *tv, void *data)
     ErfDagThreadVars *ewtn = (ErfDagThreadVars *)data;
 
     ReceiveErfDagCloseStream(ewtn->dagfd, ewtn->dagstream);
+    if (ewtn->copy_mode != DAG_COPY_MODE_NONE) {
+	ReceiveErfDagCloseStream(ewtn->dagfd, 1);
+    }
+    dag_close(ewtn->dagfd);
 
     SCReturnInt(TM_ECODE_OK);
 }
@@ -592,7 +614,6 @@ ReceiveErfDagCloseStream(int dagfd, int stream)
 {
     dag_stop_stream(dagfd, stream);
     dag_detach_stream(dagfd, stream);
-    dag_close(dagfd);
 }
 
 /** Decode ErfDag */

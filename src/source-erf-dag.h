@@ -25,6 +25,18 @@
 #ifndef __SOURCE_ERF_DAG_H__
 #define __SOURCE_ERF_DAG_H__
 
+#define DAG_COPY_MODE_NONE  0
+#define DAG_COPY_MODE_TAP   1
+#define DAG_COPY_MODE_IPS   2
+
+#define DAG_IFACE_NAME_LENGTH 48
+
+typedef struct DagIfaceConfig_
+{
+    char iface[DAG_IFACE_NAME_LENGTH];
+    int copy_mode;
+} DagIfaceConfig;
+
 void TmModuleReceiveErfDagRegister(void);
 void TmModuleDecodeErfDagRegister(void);
 
