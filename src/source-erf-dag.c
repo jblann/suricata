@@ -34,6 +34,8 @@
 #include "util-device.h"
 #include "tmqh-packetpool.h"
 
+#include "source-erf-dag.h"
+
 #ifndef HAVE_DAG
 
 TmEcode NoErfDagSupportExit(ThreadVars *, void *, void **);
@@ -291,8 +293,8 @@ ReceiveErfDagThreadInit(ThreadVars *tv, void *initdata, void **data)
     if (ewtn->copy_mode != AFP_COPY_MODE_NONE) {
 	if (dag_attach_stream(ewtn->dagfd, 1, 0, 0) < 0) {
 	    SCLogError(SC_ERR_ERF_DAG_STREAM_OPEN_FAILED,
-		       "Failed to open Tx DAG stream: 1, DAG: %s",
-		       ewtn->dagname);
+		       "Failed to open Tx DAG stream: %d, DAG: %s",
+		       1, ewtn->dagname);
 	    dag_detach_stream(ewtn->dagfd, ewtn->dagstream);
 	    dag_close(ewtn->dagfd);
 	    SCFree(ewtn);
@@ -312,21 +314,16 @@ ReceiveErfDagThreadInit(ThreadVars *tv, void *initdata, void **data)
     SCLogInfo("Attached and started stream: %d on DAG: %s",
         ewtn->dagstream, ewtn->dagname);
 
-#if 1 /* Inline. */
-    if (dag_attach_stream(ewtn->dagfd, 1, 0, 0) < 0) {
+    if (dagconfig->copy_mode != DAG_COPY_MODE_NONE) {
+      if (dag_start_stream(ewtn->dagfd, 1) < 0) {
         SCLogError(SC_ERR_ERF_DAG_STREAM_OPEN_FAILED,
-            "Failed to attach DAG stream %s:%d", ewtn->dagname, 1);
+		   "Failed to start DAG stream %s:%d", ewtn->dagname, 1);
         SCFree(ewtn);
         SCReturnInt(TM_ECODE_FAILED);
+      }
+      SCLogInfo("Attached and started Tx stream: %d on DAG: %s",
+		1, ewtn->dagname);
     }
-
-    if (dag_start_stream(ewtn->dagfd, 1) < 0) {
-        SCLogError(SC_ERR_ERF_DAG_STREAM_OPEN_FAILED,
-            "Failed to start DAG stream %s:%d", ewtn->dagname, 1);
-        SCFree(ewtn);
-        SCReturnInt(TM_ECODE_FAILED);
-    }
-#endif
 
     /*
      * Initialise DAG Polling parameters.
@@ -528,6 +525,12 @@ ProcessErfDagRecord(ErfDagThreadVars *ewtn, char *prec)
     wlen = ntohs(dr->wlen);
     rlen = ntohs(dr->rlen);
 
+    /* Drop/ignore if rxerror set */
+    if (dr->flags.rxerror) {
+	SCLogInfo("Ignoring frame, rxerror flag set.");
+	SCReturnInt(TM_ECODE_OK);
+    }
+
     /* count extension headers */
     while (hdr_type & 0x80) {
         if (rlen < (dag_record_size + (hdr_num * 8))) {
@@ -587,8 +590,7 @@ ProcessErfDagRecord(ErfDagThreadVars *ewtn, char *prec)
         SCReturnInt(TM_ECODE_FAILED);
     }
 
-#if 1 /* Inline. */
-    if (!PACKET_TEST_ACTION(p, ACTION_DROP)) {
+    if ( (ewtn->copy_mode == DAG_COPY_MODE_TAP) || ((ewtn->copy_mode == DAG_COPY_MODE_IPS) && (!PACKET_TEST_ACTION(p, ACTION_DROP))) ) {
         void *write_buf = dag_tx_get_stream_space64(ewtn->dagfd, 1, rlen);
         if (write_buf == NULL) {
             fprintf(stderr, "failed to allocate write space.");
@@ -598,7 +600,6 @@ ProcessErfDagRecord(ErfDagThreadVars *ewtn, char *prec)
         memcpy(write_buf, prec, rlen);
         dag_tx_stream_commit_bytes64(ewtn->dagfd, 1, rlen);
     }
-#endif
 
     SCReturnInt(TM_ECODE_OK);
 }

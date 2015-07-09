@@ -30,6 +30,8 @@
 #include "util-affinity.h"
 #include "util-runmodes.h"
 
+#include "source-erf-dag.h"
+
 static const char *default_mode;
 
 static int DagConfigGetThreadCount(void *conf)
@@ -42,7 +44,7 @@ static void *ParseDagConfig(const char *iface)
     ConfNode *if_root;
     ConfNode *if_default = NULL;
     ConfNode *dag_packet_node;
-    ErfDagIfaceConfig *dconf = SCMalloc(sizeof(*dconf));
+    DagIfaceConfig *dconf = SCMalloc(sizeof(*dconf));
     char *copymodestr;
 
     if (unlikely(dconf == NULL)) {
@@ -77,7 +79,7 @@ static void *ParseDagConfig(const char *iface)
         } else if (strcmp(copymodestr, "tap") == 0) {
             SCLogInfo("ERF-DAG TAP mode activated %s",
                     iface);
-            aconf->copy_mode = DAG_COPY_MODE_TAP;
+            dconf->copy_mode = DAG_COPY_MODE_TAP;
         } else {
             SCLogInfo("Invalid mode (not in tap, ips)");
         }
