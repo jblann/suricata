@@ -549,6 +549,9 @@ static int DetectDNP3FuncTest01(void)
 
     rc = 1;
 end:
+    if (de_ctx != NULL) {
+        DetectEngineCtxFree(de_ctx);
+    }
     return rc;
 }
 
@@ -623,6 +626,9 @@ static int DetectDNP3ObjSetupTest(void)
 
     result = 1;
 fail:
+    if (de_ctx != NULL) {
+        DetectEngineCtxFree(de_ctx);
+    }
     return result;
 }
 
