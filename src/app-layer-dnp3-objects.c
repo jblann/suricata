@@ -792,6 +792,14 @@ int DNP3DecodeObject(int group, int variation, const uint8_t **buf,
             rc = DNP3DecodeObjectG50V3(buf, len, prefix_code, start, count,
                 items);
             break;
+        case DNP3_OBJECT_CODE(60, 0):
+        case DNP3_OBJECT_CODE(60, 1):
+        case DNP3_OBJECT_CODE(60, 2):
+        case DNP3_OBJECT_CODE(60, 3):
+        case DNP3_OBJECT_CODE(60, 4):
+            /* No data. */
+            rc = 1;
+            break;
         default:
             return DNP3_DECODER_EVENT_UNKNOWN_OBJECT;
     }
