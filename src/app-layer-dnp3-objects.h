@@ -231,9 +231,17 @@ typedef struct DNP3ObjectG32V7_ {
 
 typedef struct DNP3ObjectG50V1_ {
     uint32_t prefix;
+
     uint64_t timestamp;
 } DNP3ObjectG50V1,
     DNP3ObjectG50V3;
+
+typedef struct DNP3ObjectG52V1_ {
+    uint32_t prefix;
+
+    uint16_t delay_ms;
+} DNP3ObjectG52V1,
+    DNP3ObjectG52V2;
 
 int DNP3DecodeObject(int group, int variation, const uint8_t **buf,
     uint32_t *len, uint8_t prefix_code, uint32_t start,

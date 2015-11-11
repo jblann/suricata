@@ -775,6 +775,43 @@ error:
     return 0;
 }
 
+static int DNP3DecodeObjectG52V1(const uint8_t **buf, uint32_t *len,
+    uint8_t prefix_code, uint32_t start, uint32_t count,
+    DNP3ObjectItemList *items)
+{
+    DNP3ObjectG52V1 *object = NULL;
+    uint32_t prefix;
+    uint32_t index = start;
+
+    while (count--) {
+        object = SCCalloc(1, sizeof(*object));
+        if (unlikely(object == NULL)) {
+            goto error;
+        }
+
+        if (!DNP3ReadPrefix(buf, len, prefix_code, &prefix)) {
+            goto error;
+        }
+
+        if (!DNP3ReadUint16(buf, len, &object->delay_ms)) {
+            goto error;
+        }
+
+        if (!DNP3AddItem(items, object, index, prefix_code, prefix)) {
+            goto error;
+        }
+
+        index++;
+    }
+
+    return 1;
+error:
+    if (object != NULL) {
+        SCFree(object);
+    }
+    return 0;
+}
+
 /**
  * \brief Decode a DNP3 object.
  *
@@ -850,6 +887,11 @@ int DNP3DecodeObject(int group, int variation, const uint8_t **buf,
         case DNP3_OBJECT_CODE(50, 1):
         case DNP3_OBJECT_CODE(50, 3):
             rc = DNP3DecodeObjectG50V1(buf, len, prefix_code, start, count,
+                items);
+            break;
+        case DNP3_OBJECT_CODE(52, 1):
+        case DNP3_OBJECT_CODE(52, 2):
+            rc = DNP3DecodeObjectG52V1(buf, len, prefix_code, start, count,
                 items);
             break;
         case DNP3_OBJECT_CODE(60, 0):
