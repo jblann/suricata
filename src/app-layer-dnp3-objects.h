@@ -28,6 +28,7 @@ typedef struct DNP3ObjectG1V1_ {
 
 typedef struct DNP3ObjectG1V2_ {
     uint32_t prefix;
+
     uint8_t  online:1;
     uint8_t  restart:1;
     uint8_t  comm_lost:1;
@@ -41,6 +42,7 @@ typedef struct DNP3ObjectG1V2_ {
 
 typedef struct DNP3ObjectG2V2_ {
     uint32_t prefix;
+
     uint8_t  online:1;
     uint8_t  restart:1;
     uint8_t  comm_lost:1;
@@ -49,11 +51,13 @@ typedef struct DNP3ObjectG2V2_ {
     uint8_t  chatter_filter:1;
     uint8_t  reserved:1;
     uint8_t  state:1;
+
     uint64_t timestamp;
 } DNP3ObjectG2V2;
 
 typedef struct DNP3ObjectG3V2_ {
     uint32_t prefix;
+
     uint8_t  online:1;
     uint8_t  restart:1;
     uint8_t  comm_lost:1;
@@ -67,6 +71,7 @@ typedef struct DNP3ObjectG3V2_ {
 /* Identical layout to G1V2. */
 typedef struct DNP3ObjectG10V2_ {
     uint32_t prefix;
+
     uint8_t  online:1;
     uint8_t  restart:1;
     uint8_t  comm_lost:1;
@@ -79,6 +84,7 @@ typedef struct DNP3ObjectG10V2_ {
 
 typedef struct DNP3ObjectG12V1_ {
     uint32_t prefix;
+
     uint8_t  op_type:4;
     uint8_t  qu:1;
     uint8_t  cr:1;
@@ -92,6 +98,7 @@ typedef struct DNP3ObjectG12V1_ {
 
 typedef struct DNP3ObjectG12V2_ {
     uint32_t prefix;
+
     uint8_t  op_type;
     uint8_t  qu;
     uint8_t  cr;
@@ -156,6 +163,7 @@ typedef struct DNP3ObjectG30V1_ {
 
 typedef struct DNP3ObjectG30V2_ {
     uint32_t prefix;
+
     uint8_t online:1;
     uint8_t restart:1;
     uint8_t comm_lost:1;
@@ -164,6 +172,7 @@ typedef struct DNP3ObjectG30V2_ {
     uint8_t over_range:1;
     uint8_t reference_err:1;
     uint8_t reserved:1;
+
     int16_t value;
 } DNP3ObjectG30V2,
     DNP3ObjectG32V2;
@@ -175,6 +184,7 @@ typedef struct DNP3ObjectG30V4_ {
 
 typedef struct DNP3ObjectG30V5_ {
     uint32_t prefix;
+
     uint8_t online:1;
     uint8_t restart:1;
     uint8_t comm_lost:1;
@@ -183,11 +193,13 @@ typedef struct DNP3ObjectG30V5_ {
     uint8_t over_range:1;
     uint8_t reference_err:1;
     uint8_t reserved:1;
+
     float value;
 } DNP3ObjectG30V5;
 
-typedef struct DNP3ObjectG32V7_ {
+typedef struct DNP3ObjectG32V3_ {
     uint32_t prefix;
+
     uint8_t  online:1;
     uint8_t  restart:1;
     uint8_t  comm_lost:1;
@@ -196,6 +208,23 @@ typedef struct DNP3ObjectG32V7_ {
     uint8_t  over_range:1;
     uint8_t  reference_err:1;
     uint8_t  reserved:1;
+
+    int32_t  value;
+    uint64_t timestamp;
+} DNP3ObjectG32V3;
+
+typedef struct DNP3ObjectG32V7_ {
+    uint32_t prefix;
+
+    uint8_t  online:1;
+    uint8_t  restart:1;
+    uint8_t  comm_lost:1;
+    uint8_t  remote_forced:1;
+    uint8_t  local_forced:1;
+    uint8_t  over_range:1;
+    uint8_t  reference_err:1;
+    uint8_t  reserved:1;
+
     float    value;
     uint64_t timestamp;
 } DNP3ObjectG32V7;

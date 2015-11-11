@@ -683,7 +683,7 @@ error:
     return 0;
 }
 
-static int DNP3DecodeObjectG32V7(const uint8_t **buf, uint32_t *len,
+static int DNP3DecodeObjectG32V3(const uint8_t **buf, uint32_t *len,
     uint8_t prefix_code, uint32_t start, uint32_t count,
     DNP3ObjectItemList *items)
 {
@@ -842,8 +842,9 @@ int DNP3DecodeObject(int group, int variation, const uint8_t **buf,
             rc = DNP3DecodeObjectG30V4(buf, len, prefix_code, start, count,
                 items);
             break;
+        case DNP3_OBJECT_CODE(32, 3):
         case DNP3_OBJECT_CODE(32, 7):
-            rc = DNP3DecodeObjectG32V7(buf, len, prefix_code, start, count,
+            rc = DNP3DecodeObjectG32V3(buf, len, prefix_code, start, count,
                 items);
             break;
         case DNP3_OBJECT_CODE(50, 3):
