@@ -828,6 +828,7 @@ int DNP3DecodeObject(int group, int variation, const uint8_t **buf,
             break;
         case DNP3_OBJECT_CODE(30, 1):
         case DNP3_OBJECT_CODE(30, 5):
+        case DNP3_OBJECT_CODE(32, 1):
         case DNP3_OBJECT_CODE(40, 1):
             rc = DNP3DecodeObjectG30V5(buf, len, prefix_code, start, count,
                 items);

@@ -138,6 +138,8 @@ typedef struct DNP3ObjectG22V2_ {
 
 typedef struct DNP3ObjectG30V1_ {
     uint32_t prefix;
+
+    /* BSTR8. */
     uint8_t  online:1;
     uint8_t  restart:1;
     uint8_t  comm_lost:1;
@@ -146,8 +148,10 @@ typedef struct DNP3ObjectG30V1_ {
     uint8_t  over_range:1;
     uint8_t  reference_err:1;
     uint8_t  reserved:1;
+
     int32_t  value;
 } DNP3ObjectG30V1,
+    DNP3ObjectG32V1,
     DNP3ObjectG40V1;
 
 typedef struct DNP3ObjectG30V2_ {
