@@ -450,7 +450,8 @@ error:
 }
 
 static int DNP3DecodeObjectG20V1(const uint8_t **buf, uint32_t *len,
-    uint32_t prefix_code, uint32_t start, uint32_t count, DNP3ObjectItemList *items)
+    uint32_t prefix_code, uint32_t start, uint32_t count,
+    DNP3ObjectItemList *items)
 {
     DNP3ObjectG20V1 *object = NULL;
     uint32_t prefix;
@@ -499,8 +500,60 @@ error:
     return 0;
 }
 
+static int DNP3DecodeObjectG22V2(const uint8_t **buf, uint32_t *len,
+    uint32_t prefix_code, uint32_t start, uint32_t count,
+    DNP3ObjectItemList *items)
+{
+    DNP3ObjectG22V2 *object = NULL;
+    uint32_t prefix;
+    uint32_t index = start;
+    uint8_t octet;
+
+    while (count--) {
+        object = SCCalloc(1, sizeof(*object));
+        if (unlikely(object == NULL)) {
+            goto error;
+        }
+
+        if (!DNP3ReadPrefix(buf, len, prefix_code, &prefix)) {
+            goto error;
+        }
+
+        if (!DNP3ReadUint8(buf, len, &octet)) {
+            goto error;
+        }
+
+        object->online = octet & 0x1;
+        object->restart = (octet >> 1) & 0x1;
+        object->comm_lost = (octet >> 2) & 0x1;
+        object->remote_forced = (octet >> 3) & 0x1;
+        object->local_forced = (octet >> 4) & 0x1;
+        object->rollover = (octet >> 4) & 0x1;
+        object->discontinuity = (octet >> 6) & 0x1;
+        object->reserved = (octet >> 7) & 0x1;
+
+        if (!DNP3ReadUint16(buf, len, &object->count)) {
+            goto error;
+        }
+
+        if (!DNP3AddItem(items, object, index, prefix_code, prefix)) {
+            goto error;
+        }
+
+        index++;
+    }
+
+    return 1;
+error:
+    if (object != NULL) {
+        SCFree(object);
+    }
+    return 0;
+}
+
 static int DNP3DecodeObjectG30V2(const uint8_t **buf, uint32_t *len,
-    uint32_t prefix_code, uint32_t start, uint32_t count, DNP3ObjectItemList *items)
+    uint32_t prefix_code, uint32_t start, uint32_t count,
+    DNP3ObjectItemList *items)
 {
     DNP3ObjectG30V2 *object = NULL;
     uint32_t prefix;
@@ -767,6 +820,10 @@ int DNP3DecodeObject(int group, int variation, const uint8_t **buf,
         case DNP3_OBJECT_CODE(21, 1):
         case DNP3_OBJECT_CODE(22, 1):
             rc = DNP3DecodeObjectG20V1(buf, len, prefix_code, start, count,
+                items);
+            break;
+        case DNP3_OBJECT_CODE(22, 2):
+            rc = DNP3DecodeObjectG22V2(buf, len, prefix_code, start, count,
                 items);
             break;
         case DNP3_OBJECT_CODE(30, 1):

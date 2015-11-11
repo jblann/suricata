@@ -120,6 +120,22 @@ typedef struct DNP3ObjectG20V1_ {
     DNP3ObjectG21V1,
     DNP3ObjectG22V1;
 
+typedef struct DNP3ObjectG22V2_ {
+    uint32_t prefix;
+
+    /* BSTR8. */
+    uint8_t online:1;
+    uint8_t restart:1;
+    uint8_t comm_lost:1;
+    uint8_t remote_forced:1;
+    uint8_t local_forced:1;
+    uint8_t rollover:1;
+    uint8_t discontinuity:1;
+    uint8_t reserved:1;
+
+    uint16_t count;
+} DNP3ObjectG22V2;
+
 typedef struct DNP3ObjectG30V1_ {
     uint32_t prefix;
     uint8_t  online:1;
@@ -184,8 +200,6 @@ typedef struct DNP3ObjectG50V3_ {
     uint32_t prefix;
     uint64_t timestamp;
 } DNP3ObjectG50V3;
-
-typedef struct DNP3ObjHeader_ DNP3ObjHeader;
 
 int DNP3DecodeObject(int group, int variation, const uint8_t **buf,
     uint32_t *len, uint8_t prefix_code, uint32_t start,
