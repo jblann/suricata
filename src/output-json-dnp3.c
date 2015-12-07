@@ -416,6 +416,12 @@ static json_t *JsonDNP3LogObjectItems(DNP3Object *object)
                     json_integer(point->timestamp));
                 break;
             }
+            case DNP3_OBJECT_CODE(52, 1):
+            case DNP3_OBJECT_CODE(52, 2): {
+                DNP3ObjectG52V1 *point = item->item;
+                json_object_set_new(js, "delay_ms", point->delay_ms);
+                break;
+            }
             default:
                 SCLogError(SC_OK, "Unknown object: %d:%d", object->group,
                     object->variation);
