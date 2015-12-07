@@ -298,6 +298,7 @@ static json_t *JsonDNP3LogObjectItems(DNP3Object *object)
                 break;
             }
             case DNP3_OBJECT_CODE(30, 1):
+            case DNP3_OBJECT_CODE(32, 1):
             case DNP3_OBJECT_CODE(40, 1): {
                 DNP3ObjectG30V1 *point = item->item;
                 json_object_set_new(js, "online", json_integer(point->online));
