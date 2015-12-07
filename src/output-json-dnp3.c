@@ -365,6 +365,28 @@ static json_t *JsonDNP3LogObjectItems(DNP3Object *object)
                 json_object_set_new(js, "value", json_real(point->value));
                 break;
             }
+            case DNP3_OBJECT_CODE(32, 3): {
+                DNP3ObjectG32V3 *point = item->item;
+                json_object_set_new(js, "online", json_integer(point->online));
+                json_object_set_new(js, "restart",
+                    json_integer(point->restart));
+                json_object_set_new(js, "comm_lost",
+                    json_integer(point->comm_lost));
+                json_object_set_new(js, "remote_forced",
+                    json_integer(point->remote_forced));
+                json_object_set_new(js, "local_forced",
+                    json_integer(point->local_forced));
+                json_object_set_new(js, "over_range",
+                    json_integer(point->over_range));
+                json_object_set_new(js, "reference_err",
+                    json_integer(point->reference_err));
+                json_object_set_new(js, "reserved",
+                    json_integer(point->reserved));
+                json_object_set_new(js, "value", json_integer(point->value));
+                json_object_set_new(js, "timestamp",
+                    json_integer(point->timestamp));
+                break;
+            }
             case DNP3_OBJECT_CODE(32, 7): {
                 DNP3ObjectG32V7 *point = item->item;
                 json_object_set_new(js, "online", json_integer(point->online));
