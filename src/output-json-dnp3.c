@@ -409,6 +409,7 @@ static json_t *JsonDNP3LogObjectItems(DNP3Object *object)
                     json_integer(point->timestamp));
                 break;
             }
+            case DNP3_OBJECT_CODE(50, 1):
             case DNP3_OBJECT_CODE(50, 3): {
                 DNP3ObjectG50V3 *point = item->item;
                 json_object_set_new(js, "timestamp",
