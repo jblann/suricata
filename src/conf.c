@@ -672,7 +672,7 @@ static char *ConfPrintNameArray(char **name_arr, int level)
 /**
  * \brief Dump a configuration node and all its children.
  */
-void ConfNodeDump(const ConfNode *node, const char *prefix)
+static void ConfNodeDump(const ConfNode *node)
 {
     ConfNode *child;
 
@@ -685,15 +685,9 @@ void ConfNodeDump(const ConfNode *node, const char *prefix)
         if (unlikely(name[level] == NULL)) {
             continue;
         }
-        if (prefix == NULL) {
-            printf("%s = %s\n", ConfPrintNameArray(name, level),
-                child->val);
-        }
-        else {
-            printf("%s.%s = %s\n", prefix,
-                ConfPrintNameArray(name, level), child->val);
-        }
-        ConfNodeDump(child, prefix);
+        printf("%s = %s\n", ConfPrintNameArray(name, level),
+            child->val);
+        ConfNodeDump(child);
         SCFree(name[level]);
     }
     level--;
@@ -704,7 +698,7 @@ void ConfNodeDump(const ConfNode *node, const char *prefix)
  */
 void ConfDump(void)
 {
-    ConfNodeDump(root, NULL);
+    ConfNodeDump(root);
 }
 
 /**
