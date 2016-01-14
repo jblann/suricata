@@ -209,28 +209,19 @@ ConfYamlParse(yaml_parser_t *parser, ConfNode *parent, int inseq)
                 snprintf(sequence_node_name, DEFAULT_NAME_LEN, "%d", seq_idx++);
                 ConfNode *seq_node = ConfNodeLookupChild(parent,
                     sequence_node_name);
-                if (seq_node != NULL) {
-                    /* The sequence node has already been set, probably
-                     * from the command line.  Remove it so it gets
-                     * re-added in the expected order for iteration.
-                     */
-                    TAILQ_REMOVE(&parent->head, seq_node, next);
+                seq_node = ConfNodeNew();
+                if (unlikely(seq_node == NULL)) {
+                    return -1;
                 }
-                else {
-                    seq_node = ConfNodeNew();
-                    if (unlikely(seq_node == NULL)) {
-                        return -1;
-                    }
-                    seq_node->name = SCStrdup(sequence_node_name);
-                    if (unlikely(seq_node->name == NULL)) {
-                        SCFree(seq_node);
-                        return -1;
-                    }
-                    seq_node->val = SCStrdup(value);
-                    if (unlikely(seq_node->val == NULL)) {
-                        SCFree(seq_node->name);
-                        return -1;
-                    }
+                seq_node->name = SCStrdup(sequence_node_name);
+                if (unlikely(seq_node->name == NULL)) {
+                    SCFree(seq_node);
+                    return -1;
+                }
+                seq_node->val = SCStrdup(value);
+                if (unlikely(seq_node->val == NULL)) {
+                    SCFree(seq_node->name);
+                    return -1;
                 }
                 TAILQ_INSERT_TAIL(&parent->head, seq_node, next);
             }
@@ -249,6 +240,11 @@ ConfYamlParse(yaml_parser_t *parser, ConfNode *parent, int inseq)
                         goto next;
                     }
 
+                    /* This is a bit of hack that sets the value of
+                     * the sequence head node to the first key in the
+                     * map. Unfortunately some of the code depends on this, 
+                     * but makes code dependent on the order that map items
+                     * are defined. */
                     if (parent->is_seq) {
                         if (parent->val == NULL) {
                             parent->val = SCStrdup(value);
@@ -256,13 +252,12 @@ ConfYamlParse(yaml_parser_t *parser, ConfNode *parent, int inseq)
                                 Mangle(parent->val);
                         }
                     }
+
                     ConfNode *existing = ConfNodeLookupChild(parent, value);
                     if (existing != NULL) {
-                        if (!existing->final) {
-                            SCLogInfo("Configuration node '%s' redefined.",
-                                existing->name);
-                            ConfNodePrune(existing);
-                        }
+                        SCLogInfo("Configuration node '%s' redefined.",
+                            existing->name);
+                        ConfNodePrune(existing);
                         node = existing;
                     }
                     else {
@@ -295,11 +290,9 @@ ConfYamlParse(yaml_parser_t *parser, ConfNode *parent, int inseq)
                         if (ConfYamlHandleInclude(node, value) != 0)
                             goto fail;
                     }
-                    else if (!node->final) {
-                        if (node->val != NULL)
-                            SCFree(node->val);
-                        node->val = SCStrdup(value);
-                    }
+                    if (node->val != NULL)
+                        SCFree(node->val);
+                    node->val = SCStrdup(value);
                     state = CONF_KEY;
                 }
             }
@@ -322,24 +315,17 @@ ConfYamlParse(yaml_parser_t *parser, ConfNode *parent, int inseq)
                 snprintf(sequence_node_name, DEFAULT_NAME_LEN, "%d", seq_idx++);
                 ConfNode *seq_node = ConfNodeLookupChild(node,
                     sequence_node_name);
-                if (seq_node != NULL) {
-                    /* The sequence node has already been set, probably
-                     * from the command line.  Remove it so it gets
-                     * re-added in the expected order for iteration.
-                     */
-                    TAILQ_REMOVE(&node->head, seq_node, next);
+                seq_node = ConfNodeNew();
+                if (unlikely(seq_node == NULL)) {
+                    return -1;
                 }
-                else {
-                    seq_node = ConfNodeNew();
-                    if (unlikely(seq_node == NULL)) {
-                        return -1;
-                    }
-                    seq_node->name = SCStrdup(sequence_node_name);
-                    if (unlikely(seq_node->name == NULL)) {
-                        SCFree(seq_node);
-                        return -1;
-                    }
+                seq_node->name = SCStrdup(sequence_node_name);
+                if (unlikely(seq_node->name == NULL)) {
+                    SCFree(seq_node);
+                    return -1;
                 }
+                /* Need to get rid of this, but some code depends
+                 * on it right now. */
                 seq_node->is_seq = 1;
                 TAILQ_INSERT_TAIL(&node->head, seq_node, next);
                 if (ConfYamlParse(parser, seq_node, 0) != 0)
@@ -914,6 +900,7 @@ ConfYamlOverrideFinalTest(void)
         return 0;
     if (ConfYamlLoadString(config, strlen(config)) != 0)
         return 0;
+    ConfApplyFinal();
 
     char *default_log_dir;
 
