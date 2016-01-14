@@ -35,8 +35,8 @@ typedef struct ConfNode_ {
 
     int is_seq;
 
-    /**< Flag that sets this nodes value as final. */
-    int final;
+    /* /\**< Flag that sets this nodes value as final. *\/ */
+    /* int final; */
 
     struct ConfNode_ *parent;
     TAILQ_HEAD(, ConfNode_) head;
@@ -88,5 +88,7 @@ int ConfGetChildValueIntWithDefault(const ConfNode *base, const ConfNode *dflt, 
 int ConfGetChildValueBoolWithDefault(const ConfNode *base, const ConfNode *dflt, const char *name, int *val);
 char *ConfLoadCompleteIncludePath(const char *);
 int ConfNodeIsSequence(const ConfNode *node);
+
+void ConfApplyFinal(void);
 
 #endif /* ! __CONF_H__ */

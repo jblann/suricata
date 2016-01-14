@@ -41,12 +41,14 @@
 #include "util-unittest.h"
 #include "util-debug.h"
 #include "util-path.h"
+#include "util-byte.h"
 
 /** Maximum size of a complete domain name. */
 #define NODE_NAME_MAX 1024
 
 static ConfNode *root = NULL;
 static ConfNode *root_backup = NULL;
+static ConfNode *final = NULL;
 
 /**
  * \brief Helper function to get a node, creating it if it does not
@@ -61,9 +63,9 @@ static ConfNode *root_backup = NULL;
  * \retval The existing configuration node if it exists, or a newly
  *   created node for the provided name.  On error, NULL will be returned.
  */
-static ConfNode *ConfGetNodeOrCreate(const char *name, int final)
+static ConfNode *ConfGetNodeOrCreate(ConfNode *parent, const char *name,
+    int final)
 {
-    ConfNode *parent = root;
     ConfNode *node = NULL;
     char node_name[NODE_NAME_MAX];
     char *key;
@@ -96,8 +98,10 @@ static ConfNode *ConfGetNodeOrCreate(const char *name, int final)
                 goto end;
             }
             node->parent = parent;
-            node->final = final;
             TAILQ_INSERT_TAIL(&parent->head, node, next);
+        } else {
+            fprintf(stderr, "found node %s with val %s\n", node->name,
+                node->val);
         }
         key = next;
         parent = node;
@@ -120,6 +124,13 @@ void ConfInit(void)
     if (root == NULL) {
         SCLogError(SC_ERR_MEM_ALLOC,
             "ERROR: Failed to allocate memory for root configuration node, "
+            "aborting.");
+        exit(EXIT_FAILURE);
+    }
+    final = ConfNodeNew();
+    if (final == NULL) {
+        SCLogError(SC_ERR_MEM_ALLOC,
+            "ERROR: Failed to allocate memory for final configuration node, "
             "aborting.");
         exit(EXIT_FAILURE);
     }
@@ -219,8 +230,8 @@ ConfNode *ConfGetRootNode(void)
  */
 int ConfSet(const char *name, char *val)
 {
-    ConfNode *node = ConfGetNodeOrCreate(name, 0);
-    if (node == NULL || node->final) {
+    ConfNode *node = ConfGetNodeOrCreate(root, name, 0);
+    if (node == NULL) {
         return 0;
     }
     if (node->val != NULL)
@@ -298,7 +309,7 @@ done:
  */
 int ConfSetFinal(const char *name, char *val)
 {
-    ConfNode *node = ConfGetNodeOrCreate(name, 1);
+    ConfNode *node = ConfGetNodeOrCreate(final, name, 1);
     if (node == NULL) {
         return 0;
     }
@@ -308,7 +319,6 @@ int ConfSetFinal(const char *name, char *val)
     if (unlikely(node->val == NULL)) {
         return 0;
     }
-    node->final = 1;
     return 1;
 }
 
@@ -756,7 +766,6 @@ const char *ConfNodeLookupChildValue(const ConfNode *node, const char *name)
  *
  * \return the ConfNode matching or NULL
  */
-
 ConfNode *ConfNodeLookupKeyValue(const ConfNode *base, const char *key,
     const char *value)
 {
@@ -846,16 +855,14 @@ void ConfNodePrune(ConfNode *node)
 
     for (item = TAILQ_FIRST(&node->head); item != NULL; item = it) {
         it = TAILQ_NEXT(item, next);
-        if (!item->final) {
-            ConfNodePrune(item);
-            if (TAILQ_EMPTY(&item->head)) {
-                TAILQ_REMOVE(&node->head, item, next);
-                if (item->name != NULL)
-                    SCFree(item->name);
-                if (item->val != NULL)
-                    SCFree(item->val);
-                SCFree(item);
-            }
+        ConfNodePrune(item);
+        if (TAILQ_EMPTY(&item->head)) {
+            TAILQ_REMOVE(&node->head, item, next);
+            if (item->name != NULL)
+                SCFree(item->name);
+            if (item->val != NULL)
+                SCFree(item->val);
+            SCFree(item);
         }
     }
 
@@ -875,6 +882,52 @@ void ConfNodePrune(ConfNode *node)
 int ConfNodeIsSequence(const ConfNode *node)
 {
     return node->is_seq == 0 ? 0 : 1;
+}
+
+/**
+ * \brief Overlay one configuration tree over another.
+ *
+ * The main use case is to apply configuration parameters set on the
+ * command line to the configuration loaded from a file.  For example,
+ * command line parameters set the final flag which loads them into
+ * the final config. Then the configuration file is loaded, then the
+ * "final" configuration tree is loaded overtop of the main
+ * configuration overriding values loaded from a file.
+ *
+ * \param oroot The root node of the overlay configuration.
+ * \param proot The root node of the configuration the overlay will be 
+ *     applied to to. 
+ */
+static void DoConfApplyFinal(ConfNode *oroot, ConfNode *proot)
+{
+    ConfNode *on, *pn;
+
+    TAILQ_FOREACH(on, &oroot->head, next) {
+
+        pn = ConfNodeLookupChild(proot, on->name);
+        if (pn == NULL) {
+            pn = ConfNodeNew();
+            pn->name = SCStrdup(on->name);
+            TAILQ_INSERT_TAIL(&proot->head, pn, next);
+        }
+        
+        if (on->val != NULL) {
+            if (pn->val != NULL) {
+                SCFree(pn->val);
+            }
+            pn->val = SCStrdup(on->val);
+        }
+        
+        DoConfApplyFinal(on, pn);
+    }
+}
+
+/**
+ * \brief Apply the final configuration over the main configuration.
+ */
+void ConfApplyFinal(void)
+{
+    DoConfApplyFinal(final, root);
 }
 
 #ifdef UNITTESTS
@@ -910,59 +963,6 @@ static int ConfTestSetAndGet(void)
     ConfRemove(name);
 
     return 1;
-}
-
-/**
- * Test that overriding a value is allowed provided allow_override is
- * true and that the config parameter gets the new value.
- */
-static int ConfTestOverrideValue1(void)
-{
-    char name[] = "some-name";
-    char value0[] = "some-value";
-    char value1[] = "new-value";
-    char *val;
-    int rc;
-
-    if (ConfSet(name, value0) != 1)
-        return 0;
-    if (ConfSet(name, value1) != 1)
-        return 0;
-    if (ConfGet(name, &val) != 1)
-        return 0;
-
-    rc = !strcmp(val, value1);
-
-    /* Cleanup. */
-    ConfRemove(name);
-
-    return rc;
-}
-
-/**
- * Test that a final value will not be overrided by a ConfSet.
- */
-static int ConfTestOverrideValue2(void)
-{
-    char name[] = "some-name";
-    char value0[] = "some-value";
-    char value1[] = "new-value";
-    char *val;
-    int rc;
-
-    if (ConfSetFinal(name, value0) != 1)
-        return 0;
-    if (ConfSet(name, value1) != 0)
-        return 0;
-    if (ConfGet(name, &val) != 1)
-        return 0;
-
-    rc = !strcmp(val, value0);
-
-    /* Cleanup. */
-    ConfRemove(name);
-
-    return rc;
 }
 
 /**
@@ -1304,7 +1304,7 @@ static int ConfGetNodeOrCreateTest(void)
 
     /* Get a node that should not exist, give it a value, re-get it
      * and make sure the second time it returns the existing node. */
-    node = ConfGetNodeOrCreate("node0", 0);
+    node = ConfGetNodeOrCreate(root, "node0", 0);
     if (node == NULL) {
         fprintf(stderr, "returned null\n");
         goto end;
@@ -1318,7 +1318,7 @@ static int ConfGetNodeOrCreateTest(void)
         goto end;
     }
     node->val = SCStrdup("node0");
-    node = ConfGetNodeOrCreate("node0", 0);
+    node = ConfGetNodeOrCreate(root, "node0", 0);
     if (node == NULL) {
         fprintf(stderr, "returned null\n");
         goto end;
@@ -1333,7 +1333,7 @@ static int ConfGetNodeOrCreateTest(void)
     }
 
     /* Do the same, but for something deeply nested. */
-    node = ConfGetNodeOrCreate("parent.child.grandchild", 0);
+    node = ConfGetNodeOrCreate(root, "parent.child.grandchild", 0);
     if (node == NULL) {
         fprintf(stderr, "returned null\n");
         goto end;
@@ -1347,7 +1347,7 @@ static int ConfGetNodeOrCreateTest(void)
         goto end;
     }
     node->val = SCStrdup("parent.child.grandchild");
-    node = ConfGetNodeOrCreate("parent.child.grandchild", 0);
+    node = ConfGetNodeOrCreate(root, "parent.child.grandchild", 0);
     if (node == NULL) {
         fprintf(stderr, "returned null\n");
         goto end;
@@ -1362,8 +1362,8 @@ static int ConfGetNodeOrCreateTest(void)
     }
 
     /* Test that 2 child nodes have the same root. */
-    ConfNode *child1 = ConfGetNodeOrCreate("parent.kids.child1", 0);
-    ConfNode *child2 = ConfGetNodeOrCreate("parent.kids.child2", 0);
+    ConfNode *child1 = ConfGetNodeOrCreate(root, "parent.kids.child1", 0);
+    ConfNode *child2 = ConfGetNodeOrCreate(root, "parent.kids.child2", 0);
     if (child1 == NULL || child2 == NULL) {
         fprintf(stderr, "returned null\n");
         goto end;
@@ -1376,53 +1376,6 @@ static int ConfGetNodeOrCreateTest(void)
         fprintf(stderr, "parent node had unexpected name\n");
         goto end;
     }
-
-    ret = 1;
-
-end:
-    ConfDeInit();
-    ConfRestoreContextBackup();
-
-    return ret;
-}
-
-static int ConfNodePruneTest(void)
-{
-    int ret = 0;
-    ConfNode *node;
-
-    ConfCreateContextBackup();
-    ConfInit();
-
-    /* Test that final nodes exist after a prune. */
-    if (ConfSet("node.notfinal", "notfinal") != 1)
-        goto end;
-    if (ConfSetFinal("node.final", "final") != 1)
-        goto end;
-    if (ConfGetNode("node.notfinal") == NULL)
-        goto end;
-    if (ConfGetNode("node.final") == NULL)
-        goto end;
-    if ((node = ConfGetNode("node")) == NULL)
-        goto end;
-    ConfNodePrune(node);
-    if (ConfGetNode("node.notfinal") != NULL)
-        goto end;
-    if (ConfGetNode("node.final") == NULL)
-        goto end;
-
-    /* Test that everything under a final node exists after a prune. */
-    if (ConfSet("node.final.one", "one") != 1)
-        goto end;
-    if (ConfSet("node.final.two", "two") != 1)
-        goto end;
-    ConfNodePrune(node);
-    if (ConfNodeLookupChild(node, "final") == NULL)
-        goto end;
-    if (ConfGetNode("node.final.one") == NULL)
-        goto end;
-    if (ConfGetNode("node.final.two") == NULL)
-        goto end;
 
     ret = 1;
 
@@ -1521,8 +1474,6 @@ void ConfRegisterTests(void)
     UtRegisterTest("ConfTestGetNonExistant", ConfTestGetNonExistant, 1);
     UtRegisterTest("ConfSetTest", ConfSetTest, 1);
     UtRegisterTest("ConfTestSetAndGet", ConfTestSetAndGet, 1);
-    UtRegisterTest("ConfTestOverrideValue1", ConfTestOverrideValue1, 1);
-    UtRegisterTest("ConfTestOverrideValue2", ConfTestOverrideValue2, 1);
     UtRegisterTest("ConfTestGetInt", ConfTestGetInt, 1);
     UtRegisterTest("ConfTestGetBool", ConfTestGetBool, 1);
     UtRegisterTest("ConfNodeLookupChildTest", ConfNodeLookupChildTest, 1);
@@ -1532,9 +1483,9 @@ void ConfRegisterTests(void)
     UtRegisterTest("ConfGetChildValueIntWithDefaultTest", ConfGetChildValueIntWithDefaultTest, 1);
     UtRegisterTest("ConfGetChildValueBoolWithDefaultTest", ConfGetChildValueBoolWithDefaultTest, 1);
     UtRegisterTest("ConfGetNodeOrCreateTest", ConfGetNodeOrCreateTest, 1);
-    UtRegisterTest("ConfNodePruneTest", ConfNodePruneTest, 1);
     UtRegisterTest("ConfNodeIsSequenceTest", ConfNodeIsSequenceTest, 1);
     UtRegisterTest("ConfSetFromStringTest", ConfSetFromStringTest, 1);
 }
 
 #endif /* UNITTESTS */
+

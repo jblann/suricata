@@ -2244,6 +2244,7 @@ int main(int argc, char **argv)
     if (LoadYamlConfig(conf_filename) != TM_ECODE_OK) {
         exit(EXIT_FAILURE);
     }
+    ConfApplyFinal();
 
     if (suri.run_mode == RUNMODE_DUMP_CONFIG) {
         ConfDump();
