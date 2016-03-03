@@ -397,10 +397,9 @@ ConfYamlParse(yaml_parser_t *parser, ConfNode *parent, int inseq)
             return 0;
         }
         else if (event.type == YAML_MAPPING_START_EVENT) {
-            char *tag = (char *)event.data.mapping_start.tag;
             char *anchor = (char *)event.data.mapping_start.anchor;
-            SCLogDebug("event.type=YAML_MAPPING_START_EVENT; state=%d; tag=%s; "
-                "anchor=%s", state, tag, anchor);
+            SCLogDebug("event.type=YAML_MAPPING_START_EVENT; state=%d; "
+                "anchor=%s", state, anchor);
             if (inseq) {
                 char sequence_node_name[DEFAULT_NAME_LEN];
                 snprintf(sequence_node_name, DEFAULT_NAME_LEN, "%d", seq_idx++);
