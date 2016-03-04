@@ -385,10 +385,26 @@ ConfYamlParse(yaml_parser_t *parser, ConfNode *parent, int inseq)
             }
         }
         else if (event.type == YAML_SEQUENCE_START_EVENT) {
-            SCLogDebug("event.type=YAML_SEQUENCE_START_EVENT; state=%d", state);
+            char *anchor = (char *)event.data.sequence_start.anchor;
+            SCLogDebug("event.type=YAML_SEQUENCE_START_EVENT; state=%d; "
+                "anchor=%s", state, anchor);
             if (ConfYamlParse(parser, node, 1) != 0)
                 goto fail;
             node->is_seq = 1;
+            if (anchor != NULL) {
+                ConfNode *existing_anchor = ConfNodeLookupAnchor(anchor, NULL);
+                if (existing_anchor != NULL) {
+                    SCLogWarning(SC_WARN_YAML_DUPLICATE_ANCHOR,
+                        "Duplicate YAML anchor found %s, will be replaced.",
+                        anchor);
+                    SCFree(existing_anchor->anchor);
+                    existing_anchor->anchor = NULL;
+                }
+                if (node->anchor != NULL) {
+                    SCFree(node->anchor);
+                }
+                node->anchor = SCStrdup(anchor);
+            }
             state = CONF_KEY;
         }
         else if (event.type == YAML_SEQUENCE_END_EVENT) {

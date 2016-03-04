@@ -315,6 +315,7 @@ const char * SCErrorToString(SCError err)
         CASE_CODE (SC_ERR_STATS_LOG_NEGATED);
         CASE_CODE (SC_ERR_JSON_STATS_LOG_NEGATED);
         CASE_CODE (SC_ERR_DEPRECATED_CONF);
+        CASE_CODE (SC_WARN_YAML_DUPLICATE_ANCHOR);
     }
 
     return "UNKNOWN_ERROR";
