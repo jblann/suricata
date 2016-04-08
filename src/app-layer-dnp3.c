@@ -1630,20 +1630,11 @@ void RegisterDNP3Parsers(void)
 #include "flow-util.h"
 #include "stream-tcp.h"
 
-#define FAIL_IF(expr) do {                                      \
-        if (expr) {                                             \
-            printf("Failed at %s:%d\n", __FILE__, __LINE__);    \
-            goto end;                                           \
-        }                                                       \
-    } while (0);
-
 /**
  * \test Test CRC checking on partial and full blocks.
  */
 static int DNP3ParserTestCheckCRC(void)
 {
-    int result = 0;
-
     uint8_t request[] = {
         /* DNP3 start. */
         0x05, 0x64, 0x1a, 0xc4, 0x02, 0x00, 0x01, 0x00,
@@ -1678,9 +1669,7 @@ static int DNP3ParserTestCheckCRC(void)
     FAIL_IF(DNP3CheckCRC(request + sizeof(DNP3LinkHeader),
             DNP3_BLOCK_SIZE + DNP3_CRC_LEN));
 
-    result = 1;
-end:
-    return result;
+    PASS;
 }
 
 /**
@@ -1688,8 +1677,6 @@ end:
  */
 static int DNP3CheckUserDataCRCsTest(void)
 {
-    int result = 0;
-
     /* Multi-block data with valid CRCs. */
     uint8_t data_valid[] = {
         0xff, 0xc9, 0x05, 0x0c,
@@ -1757,9 +1744,7 @@ static int DNP3CheckUserDataCRCsTest(void)
     FAIL_IF(!DNP3CheckUserDataCRCs(three_bytes_good_crc,
             sizeof(three_bytes_good_crc)));
 
-    result = 1;
-end:
-    return result;
+    PASS;
 }
 
 /**
@@ -1794,9 +1779,7 @@ static int DNP3CalculateLinkLengthTest(void)
     /* The maximum size. */
     FAIL_IF(DNP3CalculateLinkLength(255) != 292);
 
-    return 1;
-end:
-    return 0;
+    PASS;
 }
 
 /**
@@ -1805,8 +1788,6 @@ end:
  */
 static int DNP3CalculateTransportLengthWithoutCRCsTest(void)
 {
-    int retval = 0;
-
     FAIL_IF(DNP3CalculateTransportLengthWithoutCRCs(0) != -1);
     FAIL_IF(DNP3CalculateTransportLengthWithoutCRCs(1) != -1);
     FAIL_IF(DNP3CalculateTransportLengthWithoutCRCs(2) != 0);
@@ -1824,9 +1805,7 @@ static int DNP3CalculateTransportLengthWithoutCRCsTest(void)
 
     FAIL_IF(DNP3CalculateTransportLengthWithoutCRCs(21) != 17);
 
-    retval = 1;
-end:
-    return retval;
+    PASS;
 }
 
 /**
@@ -1834,8 +1813,6 @@ end:
  */
 static int DNP3ParserCheckLinkHeaderCRC(void)
 {
-    int result = 0;
-
     /* DNP3 frame with valid headers and CRCs. */
     uint8_t request[] = {
         /* DNP3 start. */
@@ -1858,9 +1835,7 @@ static int DNP3ParserCheckLinkHeaderCRC(void)
     request[4] = 0;
     FAIL_IF(DNP3CheckLinkHeaderCRC(header));
 
-    result = 1;
-end:
-    return result;
+    PASS;
 }
 
 /**
@@ -1868,7 +1843,6 @@ end:
  */
 static int DNP3ReassembleApplicationLayerTest01(void)
 {
-    int result = 0;
     uint32_t reassembled_len = 0;
     uint8_t *output = NULL;
 
@@ -2013,9 +1987,7 @@ static int DNP3ReassembleApplicationLayerTest01(void)
     FAIL_IF(DNP3ReassembleApplicationLayer(short_payload2,
             sizeof(short_payload2), &output, &reassembled_len));
 
-    result = 1;
-end:
-    return result;
+    PASS;
 }
 
 /**
@@ -2049,10 +2021,7 @@ static int DNP3ProbingParserTest(void)
     char banner[] = "Welcome to DNP3 SCADA.";
     FAIL_IF(DNP3ProbingParser((uint8_t *)banner, sizeof(banner), NULL) != ALPROTO_DNP3);
 
-    return 1;
-end:
-    return 0;
-
+    PASS;
 }
 
 /**
@@ -2061,7 +2030,6 @@ end:
 int DNP3ParserTestRequestResponse(void)
 {
     DNP3State *state = NULL;
-    int result = 0;
 
     uint8_t request[] = {
         /* DNP3 start. */
@@ -2105,11 +2073,8 @@ int DNP3ParserTestRequestResponse(void)
     StreamTcpInitConfig(TRUE);
 
     SCMutexLock(&flow.m);
-    if (AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOSERVER,
-            request, sizeof(request))) {
-        SCMutexUnlock(&flow.m);
-        goto end;
-    }
+    FAIL_IF(AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOSERVER,
+            request, sizeof(request)));
     SCMutexUnlock(&flow.m);
 
     state = flow.alstate;
@@ -2125,23 +2090,19 @@ int DNP3ParserTestRequestResponse(void)
     FAIL_IF(tx->request_ah.function_code != DNP3_APP_FC_DIR_OPERATE);
 
     SCMutexLock(&flow.m);
-    if (AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOCLIENT,
-            response, sizeof(response))) {
-        SCMutexUnlock(&flow.m);
-        goto end;
-    }
+    FAIL_IF(AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOCLIENT,
+            response, sizeof(response)));
+    SCMutexUnlock(&flow.m);
     SCMutexUnlock(&flow.m);
     FAIL_IF(DNP3GetTx(state, 0) != tx);
     FAIL_IF(!tx->response_done);
     FAIL_IF(tx->response_buffer == NULL);
 
-    result = 1;
-end:
     AppLayerParserThreadCtxFree(alp_tctx);
     StreamTcpFreeConfig(TRUE);
     FLOW_DESTROY(&flow);
     DNP3StateFree(state);
-    return result;
+    PASS;
 }
 
 /**
@@ -2152,7 +2113,6 @@ end:
 static int DNP3ParserTestUnsolicitedResponseConfirm(void)
 {
     DNP3State *state = NULL;
-    int result = 0;
 
     /* Unsolicited response with confirm bit set. */
     uint8_t response[] = {
@@ -2182,11 +2142,8 @@ static int DNP3ParserTestUnsolicitedResponseConfirm(void)
     StreamTcpInitConfig(TRUE);
 
     SCMutexLock(&flow.m);
-    if (AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOCLIENT,
-            response, sizeof(response))) {
-        SCMutexUnlock(&flow.m);
-        FAIL_IF(1);
-    }
+    FAIL_IF(AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOCLIENT,
+            response, sizeof(response)));
     SCMutexUnlock(&flow.m);
 
     state = flow.alstate;
@@ -2199,28 +2156,23 @@ static int DNP3ParserTestUnsolicitedResponseConfirm(void)
     FAIL_IF(tx != state->curr);
     FAIL_IF(tx->request_buffer != NULL);
     FAIL_IF(tx->response_buffer == NULL);
-    FAIL_IF(!tx->response_done)
+    FAIL_IF(!tx->response_done);
     FAIL_IF(tx->response_ah.function_code != DNP3_APP_FC_UNSOLICITED_RESP);
 
     SCMutexLock(&flow.m);
-    if (AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOSERVER,
-            confirm, sizeof(confirm))) {
-        SCMutexUnlock(&flow.m);
-        FAIL_IF(1);
-    }
+    FAIL_IF(AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOSERVER,
+            confirm, sizeof(confirm)));
     SCMutexUnlock(&flow.m);
     FAIL_IF(DNP3GetTx(state, 0) != tx);
     FAIL_IF(!tx->response_done);
     FAIL_IF(tx->response_buffer == NULL);
     /* FAIL_IF(tx->iin1 != 0 || tx->iin2 != 0); */
 
-    result = 1;
-end:
     AppLayerParserThreadCtxFree(alp_tctx);
     StreamTcpFreeConfig(TRUE);
     FLOW_DESTROY(&flow);
     DNP3StateFree(state);
-    return result;
+    PASS;
 }
 
 /**
@@ -2229,7 +2181,6 @@ end:
 int DNP3ParserTestFlooded(void)
 {
     DNP3State *state = NULL;
-    int result = 0;
 
     uint8_t request[] = {
         /* DNP3 start. */
@@ -2258,11 +2209,8 @@ int DNP3ParserTestFlooded(void)
     StreamTcpInitConfig(TRUE);
 
     SCMutexLock(&flow.m);
-    if (AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOSERVER,
-            request, sizeof(request))) {
-        SCMutexUnlock(&flow.m);
-        goto end;
-    }
+    FAIL_IF(AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOSERVER,
+            request, sizeof(request)));
     SCMutexUnlock(&flow.m);
 
     state = flow.alstate;
@@ -2280,11 +2228,8 @@ int DNP3ParserTestFlooded(void)
 
     for (int i = 0; i < DNP3_DEFAULT_REQ_FLOOD_COUNT - 1; i++) {
         SCMutexLock(&flow.m);
-        if (AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOSERVER,
-                request, sizeof(request))) {
-            SCMutexUnlock(&flow.m);
-            goto end;
-        }
+        FAIL_IF(AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3,
+                STREAM_TOSERVER, request, sizeof(request)));
         SCMutexUnlock(&flow.m);
     }
     FAIL_IF(state->flooded);
@@ -2292,11 +2237,9 @@ int DNP3ParserTestFlooded(void)
 
     /* One more request should trip us into flooded state. */
     SCMutexLock(&flow.m);
-    if (AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOSERVER,
-            request, sizeof(request))) {
-        SCMutexUnlock(&flow.m);
-        goto end;
-    }
+    FAIL_IF(AppLayerParserParse(alp_tctx, &flow, ALPROTO_DNP3, STREAM_TOSERVER,
+            request, sizeof(request)));
+    SCMutexUnlock(&flow.m);
     SCMutexUnlock(&flow.m);
     FAIL_IF(!state->flooded);
 
@@ -2306,13 +2249,11 @@ int DNP3ParserTestFlooded(void)
     /* But progress for the current state should still return 0. */
     FAIL_IF(DNP3GetAlstateProgress(state->curr, 0));
 
-    result = 1;
-end:
     AppLayerParserThreadCtxFree(alp_tctx);
     StreamTcpFreeConfig(TRUE);
     FLOW_DESTROY(&flow);
     DNP3StateFree(state);
-    return result;
+    PASS;
 }
 
 /**
@@ -2326,7 +2267,7 @@ static int DNP3ParserTestPartialFrame(void)
 {
     DNP3State *state = NULL;
     DNP3Transaction *tx;
-    int result = 0, r;
+    int r;
 
     uint8_t request_partial1[] = {
         /* DNP3 start. */
@@ -2441,13 +2382,11 @@ static int DNP3ParserTestPartialFrame(void)
     FAIL_IF(tx->response_buffer == NULL);
     FAIL_IF(tx->response_buffer_len == 0);
 
-    result = 1;
-end:
     AppLayerParserThreadCtxFree(alp_tctx);
     StreamTcpFreeConfig(TRUE);
     FLOW_DESTROY(&flow);
     DNP3StateFree(state);
-    return result;
+    PASS;
 }
 
 /**
@@ -2456,7 +2395,6 @@ end:
 static int DNP3ParserTestMultiFrame(void)
 {
     DNP3State *state = NULL;
-    int result = 0;
 
     /* Unsolicited response 1. */
     uint8_t unsol_response1[] = {
@@ -2500,13 +2438,11 @@ static int DNP3ParserTestMultiFrame(void)
     FAIL_IF(state == NULL);
     FAIL_IF(state->transaction_max != 2);
 
-    result = 1;
-end:
     AppLayerParserThreadCtxFree(alp_tctx);
     StreamTcpFreeConfig(TRUE);
     FLOW_DESTROY(&flow);
     DNP3StateFree(state);
-    return result;
+    PASS;
 }
 
 /**
@@ -2519,8 +2455,6 @@ end:
  */
 static int DNP3ParserTestParsePDU01(void)
 {
-    int retval = 0;
-
     /* Frame to be tested. This frame is a DNP3 request with one read
      * request data object, group 1, variation 0. */
     const uint8_t pkt[] = {
@@ -2531,31 +2465,17 @@ static int DNP3ParserTestParsePDU01(void)
 
     DNP3State *dnp3state = DNP3StateAlloc();
     int pdus = DNP3HandleRequestLinkLayer(dnp3state, pkt, sizeof(pkt));
-    if (pdus < 1) {
-        goto end;
-    }
+    FAIL_IF(pdus < 1);
     DNP3Transaction *dnp3tx = DNP3GetTx(dnp3state, 0);
-    if (dnp3tx == NULL) {
-        goto end;
-    }
-    if (!dnp3tx->has_request) {
-        goto end;
-    }
-    if (TAILQ_EMPTY(&dnp3tx->request_objects)) {
-        goto end;
-    }
+    FAIL_IF_NULL(dnp3tx);
+    FAIL_IF(!dnp3tx->has_request);
+    FAIL_IF(TAILQ_EMPTY(&dnp3tx->request_objects));
     DNP3Object *object = TAILQ_FIRST(&dnp3tx->request_objects);
-    if (object->group != 1 || object->variation != 0) {
-        goto end;
-    }
-    if (object->count != 0) {
-        goto end;
-    }
+    FAIL_IF(object->group != 1 || object->variation != 0);
+    FAIL_IF(object->count != 0);
 
-    retval = 1;
-end:
     DNP3StateFree(dnp3state);
-    return retval;
+    PASS;
 }
 
 #endif
@@ -2563,26 +2483,25 @@ end:
 void DNP3ParserRegisterTests(void)
 {
 #ifdef UNITTESTS
-    UtRegisterTest("DNP3ParserTestCheckCRC", DNP3ParserTestCheckCRC, 1);
-    UtRegisterTest("DNP3ParserCheckLinkHeaderCRC", DNP3ParserCheckLinkHeaderCRC,
-        1);
-    UtRegisterTest("DNP3CheckUserDataCRCsTest", DNP3CheckUserDataCRCsTest, 1);
-    UtRegisterTest("DNP3CalculateLinkLengthTest", DNP3CalculateLinkLengthTest,
-        1);
+    UtRegisterTest("DNP3ParserTestCheckCRC", DNP3ParserTestCheckCRC);
+    UtRegisterTest("DNP3ParserCheckLinkHeaderCRC",
+                   DNP3ParserCheckLinkHeaderCRC);
+    UtRegisterTest("DNP3CheckUserDataCRCsTest", DNP3CheckUserDataCRCsTest);
+    UtRegisterTest("DNP3CalculateLinkLengthTest", DNP3CalculateLinkLengthTest);
     UtRegisterTest("DNP3CalculateTransportLengthWithoutCRCsTest",
-        DNP3CalculateTransportLengthWithoutCRCsTest, 1);
+                   DNP3CalculateTransportLengthWithoutCRCsTest);
     UtRegisterTest("DNP3ReassembleApplicationLayerTest01",
-        DNP3ReassembleApplicationLayerTest01, 1);
-    UtRegisterTest("DNP3ProbingParserTest", DNP3ProbingParserTest, 1);
+                   DNP3ReassembleApplicationLayerTest01);
+    UtRegisterTest("DNP3ProbingParserTest", DNP3ProbingParserTest);
     UtRegisterTest("DNP3ParserTestRequestResponse",
-        DNP3ParserTestRequestResponse, 1);
+                   DNP3ParserTestRequestResponse);
     UtRegisterTest("DNP3ParserTestUnsolicitedResponseConfirm",
-        DNP3ParserTestUnsolicitedResponseConfirm, 1);
-    UtRegisterTest("DNP3ParserTestPartialFrame", DNP3ParserTestPartialFrame, 1);
-    UtRegisterTest("DNP3ParserTestMultiFrame", DNP3ParserTestMultiFrame, 1);
-    UtRegisterTest("DNP3ParserTestFlooded", DNP3ParserTestFlooded, 1);
+                   DNP3ParserTestUnsolicitedResponseConfirm);
+    UtRegisterTest("DNP3ParserTestPartialFrame", DNP3ParserTestPartialFrame);
+    UtRegisterTest("DNP3ParserTestMultiFrame", DNP3ParserTestMultiFrame);
+    UtRegisterTest("DNP3ParserTestFlooded", DNP3ParserTestFlooded);
 
     /* Some object decode tests. */
-    UtRegisterTest("DNP3ParserTestParsePDU01", DNP3ParserTestParsePDU01, 1);
+    UtRegisterTest("DNP3ParserTestParsePDU01", DNP3ParserTestParsePDU01);
 #endif
 }
