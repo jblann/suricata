@@ -489,13 +489,6 @@ void DetectDNP3DataRegister(void)
 #include "flow-util.h"
 #include "stream-tcp.h"
 
-#define FAIL_IF(expr) do {                                      \
-        if (expr) {                                             \
-            printf("Failed at %s:%d\n", __FILE__, __LINE__);    \
-            goto fail;                                          \
-        }                                                       \
-    } while (0);
-
 static int DetectDNP3FuncParseFunctionCodeTest(void)
 {
     /* Valid. */
@@ -514,51 +507,38 @@ static int DetectDNP3FuncParseFunctionCodeTest(void)
     FAIL_IF((DetectDNP3FuncParseFunctionCode("256") != -1));
     FAIL_IF((DetectDNP3FuncParseFunctionCode("unknown_function_code") != -1));
 
-    return 1;
-fail:
-    return 0;
+    PASS;
 }
 
 static int DetectDNP3FuncTest01(void)
 {
     DetectEngineCtx *de_ctx = NULL;
     DetectDNP3 *dnp3func = NULL;
-    int rc = 0;
 
     de_ctx = DetectEngineCtxInit();
-    if (de_ctx == NULL) {
-        goto end;
-    }
+    FAIL_IF_NULL(de_ctx);
 
     de_ctx->sig_list = SigInit(de_ctx,
         "alert dnp3 any any -> any any "
         "(msg:\"SURICATA DNP3 Write request\"; "
         "dnp3_func:2; sid:5000009; rev:1;)");
-    if (de_ctx->sig_list == NULL) {
-        goto end;
-    }
+    FAIL_IF_NULL(de_ctx->sig_list);
 
-    if (de_ctx->sig_list->sm_lists_tail[DETECT_SM_LIST_DNP3_MATCH] == NULL)
-        goto end;
-    if (de_ctx->sig_list->sm_lists_tail[DETECT_SM_LIST_DNP3_MATCH]->ctx == NULL)
-        goto end;
+    FAIL_IF_NULL(de_ctx->sig_list->sm_lists_tail[DETECT_SM_LIST_DNP3_MATCH]);
+    FAIL_IF_NULL(de_ctx->sig_list->sm_lists_tail[DETECT_SM_LIST_DNP3_MATCH]->ctx);
 
     dnp3func = (DetectDNP3 *)de_ctx->sig_list->sm_lists_tail[DETECT_SM_LIST_DNP3_MATCH]->ctx;
-    if (dnp3func->function_code != 2)
-        goto end;
+    FAIL_IF(dnp3func->function_code != 2);
 
-    rc = 1;
-end:
     if (de_ctx != NULL) {
         DetectEngineCtxFree(de_ctx);
     }
-    return rc;
+    PASS;
 }
 
 static int DetectDNP3IndTestParseAsInteger(void)
 {
     uint16_t flags = 0;
-    int result = 0;
 
     FAIL_IF(!DetectDNP3IndParse("0", &flags));
     FAIL_IF(flags != 0);
@@ -577,14 +557,11 @@ static int DetectDNP3IndTestParseAsInteger(void)
 
     FAIL_IF(DetectDNP3IndParse("a", &flags));
 
-    result = 1;
-fail:
-    return result;
+    PASS;
 }
 
 static int DetectDNP3IndTestParseByName(void)
 {
-    int result = 0;
     uint16_t flags = 0;
 
     FAIL_IF(!DetectDNP3IndParse("all_stations", &flags));
@@ -596,15 +573,11 @@ static int DetectDNP3IndTestParseByName(void)
 
     FAIL_IF(DetectDNP3IndParse("something", &flags));
 
-    result = 1;
-fail:
-    return result;
+    PASS;
 }
 
 static int DetectDNP3ObjSetupTest(void)
 {
-    int result;
-
     DetectEngineCtx *de_ctx = NULL;
     DetectDNP3 *detect = NULL;
 
@@ -624,17 +597,14 @@ static int DetectDNP3ObjSetupTest(void)
     FAIL_IF(detect->obj_group != 99);
     FAIL_IF(detect->obj_variation != 99);
 
-    result = 1;
-fail:
     if (de_ctx != NULL) {
         DetectEngineCtxFree(de_ctx);
     }
-    return result;
+    PASS;
 }
 
 static int DetectDNP3ObjParseTest(void)
 {
-    int result = 0;
     uint8_t group, var;
 
     FAIL_IF(!DetectDNP3ObjParse("0,0", &group, &var));
@@ -648,9 +618,7 @@ static int DetectDNP3ObjParseTest(void)
     FAIL_IF(DetectDNP3ObjParse("a,1", &group, &var));
     FAIL_IF(DetectDNP3ObjParse("1,a", &group, &var));
 
-    result = 1;
-fail:
-    return result;
+    PASS;
 }
 
 /**
@@ -665,8 +633,6 @@ static int DetectDNP3DataTest01(void)
     Packet *p;
     TcpSession tcp;
     ThreadVars tv;
-
-    int result = 0;
 
     uint8_t request[] = {
         0x05, 0x64, 0x1a, 0xc4, 0x02, 0x00, 0x01, 0x00,
@@ -757,8 +723,6 @@ static int DetectDNP3DataTest01(void)
     FAIL_IF(PacketAlertCheck(p, 3));
     FAIL_IF(PacketAlertCheck(p, 4));
 
-    result = 1;
-fail:
     if (alp_tctx != NULL)
         AppLayerParserThreadCtxFree(alp_tctx);
     if (det_ctx != NULL)
@@ -770,7 +734,7 @@ fail:
     StreamTcpFreeConfig(TRUE);
     FLOW_DESTROY(&f);
     UTHFreePacket(p);
-    return result;
+    PASS;
 }
 
 /**
@@ -785,8 +749,6 @@ static int DetectDNP3DataTest02(void)
     Packet *p;
     TcpSession tcp;
     ThreadVars tv;
-
-    int result = 0;
 
     uint8_t request[] = {
         /* Link header. */
@@ -915,8 +877,6 @@ static int DetectDNP3DataTest02(void)
     FAIL_IF(!PacketAlertCheck(p, 3));
     FAIL_IF(PacketAlertCheck(p, 4));
 
-    result = 1;
-fail:
     if (alp_tctx != NULL)
         AppLayerParserThreadCtxFree(alp_tctx);
     if (det_ctx != NULL)
@@ -928,7 +888,7 @@ fail:
     StreamTcpFreeConfig(TRUE);
     FLOW_DESTROY(&f);
     UTHFreePacket(p);
-    return result;
+    PASS;
 }
 
 #endif
@@ -937,9 +897,8 @@ static void DetectDNP3FuncRegisterTests(void)
 {
 #ifdef UNITTESTS
     UtRegisterTest("DetectDNP3FuncParseFunctionCodeTest",
-        DetectDNP3FuncParseFunctionCodeTest, 1);
-    UtRegisterTest("DetectDNP3FuncTest01",
-        DetectDNP3FuncTest01, 1);
+                   DetectDNP3FuncParseFunctionCodeTest);
+    UtRegisterTest("DetectDNP3FuncTest01", DetectDNP3FuncTest01);
 #endif
 }
 
@@ -947,24 +906,24 @@ static void DetectDNP3IndRegisterTests(void)
 {
 #ifdef UNITTESTS
     UtRegisterTest("DetectDNP3IndTestParseAsInteger",
-        DetectDNP3IndTestParseAsInteger, 1);
-    UtRegisterTest("DetectDNP3IndTestParseByName", DetectDNP3IndTestParseByName,
-        1);
+                   DetectDNP3IndTestParseAsInteger);
+    UtRegisterTest("DetectDNP3IndTestParseByName",
+                   DetectDNP3IndTestParseByName);
 #endif
 }
 
 static void DetectDNP3ObjRegisterTests(void)
 {
 #ifdef UNITTESTS
-    UtRegisterTest("DetectDNP3ObjParseTest", DetectDNP3ObjParseTest, 1);
-    UtRegisterTest("DetectDNP3ObjSetupTest", DetectDNP3ObjSetupTest, 1);
+    UtRegisterTest("DetectDNP3ObjParseTest", DetectDNP3ObjParseTest);
+    UtRegisterTest("DetectDNP3ObjSetupTest", DetectDNP3ObjSetupTest);
 #endif
 }
 
 void DetectDNP3DataRegisterTests(void)
 {
 #ifdef UNITTESTS
-    UtRegisterTest("DetectDNP3DataTest01", DetectDNP3DataTest01, 1);
-    UtRegisterTest("DetectDNP3DataTest02", DetectDNP3DataTest02, 1);
+    UtRegisterTest("DetectDNP3DataTest01", DetectDNP3DataTest01);
+    UtRegisterTest("DetectDNP3DataTest02", DetectDNP3DataTest02);
 #endif
 }
