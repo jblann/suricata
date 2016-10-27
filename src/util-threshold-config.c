@@ -448,8 +448,9 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
     /* Install it */
     if (id == 0 && gid == 0) {
         for (s = de_ctx->sig_list; s != NULL; s = s->next) {
-            sm = SigMatchGetLastSMFromLists(s, 2,
-                    DETECT_THRESHOLD, s->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+            sm = SigMatchGetLastSMFromLists(s,
+                    DETECT_THRESHOLD, s->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                    0, NULL);
             if (sm != NULL) {
                 SCLogWarning(SC_ERR_EVENT_ENGINE, "signature sid:%"PRIu32 " has "
                         "an event var set.  The signature event var is "
@@ -458,8 +459,9 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
                 continue;
             }
 
-            sm = SigMatchGetLastSMFromLists(s, 2,
-                    DETECT_DETECTION_FILTER, s->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+            sm = SigMatchGetLastSMFromLists(s,
+                    DETECT_DETECTION_FILTER, s->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                    0, NULL);
             if (sm != NULL) {
                 SCLogWarning(SC_ERR_EVENT_ENGINE, "signature sid:%"PRIu32 " has "
                         "an event var set.  The signature event var is "
@@ -511,8 +513,9 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
     } else if (id == 0 && gid > 0) {
         for (s = de_ctx->sig_list; s != NULL; s = s->next) {
             if (s->gid == gid) {
-                sm = SigMatchGetLastSMFromLists(s, 2,
-                        DETECT_THRESHOLD, s->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+                sm = SigMatchGetLastSMFromLists(s,
+                        DETECT_THRESHOLD, s->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                        0, NULL);
                 if (sm != NULL) {
                     SCLogWarning(SC_ERR_EVENT_ENGINE, "signature sid:%"PRIu32 " has "
                             "an event var set.  The signature event var is "
@@ -521,8 +524,9 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
                     continue;
                 }
 
-                sm = SigMatchGetLastSMFromLists(s, 2,
-                        DETECT_DETECTION_FILTER, s->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+                sm = SigMatchGetLastSMFromLists(s,
+                        DETECT_DETECTION_FILTER, s->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                        0, NULL);
                 if (sm != NULL) {
                     SCLogWarning(SC_ERR_EVENT_ENGINE, "signature sid:%"PRIu32 " has "
                             "an event var set.  The signature event var is "
@@ -584,8 +588,9 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
             if (parsed_type != TYPE_SUPPRESS && parsed_type != TYPE_THRESHOLD &&
                 parsed_type != TYPE_BOTH && parsed_type != TYPE_LIMIT)
             {
-                sm = SigMatchGetLastSMFromLists(s, 2,
-                        DETECT_THRESHOLD, s->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+                sm = SigMatchGetLastSMFromLists(s,
+                        DETECT_THRESHOLD, s->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                        0, NULL);
                 if (sm != NULL) {
                     SCLogWarning(SC_ERR_EVENT_ENGINE, "signature sid:%"PRIu32 " has "
                             "a threshold set. The signature event var is "
@@ -594,8 +599,9 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
                     goto end;
                 }
 
-                sm = SigMatchGetLastSMFromLists(s, 2,
-                        DETECT_DETECTION_FILTER, s->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+                sm = SigMatchGetLastSMFromLists(s,
+                        DETECT_DETECTION_FILTER, s->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                        0, NULL);
                 if (sm != NULL) {
                     SCLogWarning(SC_ERR_EVENT_ENGINE, "signature sid:%"PRIu32 " has "
                             "a detection_filter set. The signature event var is "
@@ -607,11 +613,13 @@ static int SetupThresholdRule(DetectEngineCtx *de_ctx, uint32_t id, uint32_t gid
             /* replace threshold on sig if we have a global override for it */
 #if 1
             } else if (parsed_type == TYPE_THRESHOLD || parsed_type == TYPE_BOTH || parsed_type == TYPE_LIMIT) {
-                sm = SigMatchGetLastSMFromLists(s, 2,
-                        DETECT_THRESHOLD, s->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+                sm = SigMatchGetLastSMFromLists(s,
+                        DETECT_THRESHOLD, s->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                        0, NULL);
                 if (sm == NULL) {
-                    sm = SigMatchGetLastSMFromLists(s, 2,
-                            DETECT_DETECTION_FILTER, s->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+                    sm = SigMatchGetLastSMFromLists(s,
+                            DETECT_DETECTION_FILTER, s->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                            0, NULL);
                 }
                 if (sm != NULL) {
                     SigMatchRemoveSMFromList(s, sm, DETECT_SM_LIST_THRESHOLD);
@@ -1443,8 +1451,9 @@ int SCThresholdConfTest01(void)
     fd = SCThresholdConfGenerateValidDummyFD01();
     SCThresholdConfInitContext(de_ctx,fd);
 
-    m = SigMatchGetLastSMFromLists(sig, 2,
-                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+    m = SigMatchGetLastSMFromLists(sig,
+                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                                   0, NULL);
 
     if(m != NULL)   {
         de = (DetectThresholdData *)m->ctx;
@@ -1488,8 +1497,9 @@ int SCThresholdConfTest02(void)
     fd = SCThresholdConfGenerateValidDummyFD01();
     SCThresholdConfInitContext(de_ctx,fd);
 
-    m = SigMatchGetLastSMFromLists(sig, 2,
-                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+    m = SigMatchGetLastSMFromLists(sig,
+                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                                   0, NULL);
 
     if(m != NULL)   {
         de = (DetectThresholdData *)m->ctx;
@@ -1532,8 +1542,9 @@ int SCThresholdConfTest03(void)
     fd = SCThresholdConfGenerateValidDummyFD01();
     SCThresholdConfInitContext(de_ctx,fd);
 
-    m = SigMatchGetLastSMFromLists(sig, 2,
-                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+    m = SigMatchGetLastSMFromLists(sig,
+                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                                   0, NULL);
 
     if(m != NULL)   {
         de = (DetectThresholdData *)m->ctx;
@@ -1576,8 +1587,9 @@ int SCThresholdConfTest04(void)
     fd = SCThresholdConfGenerateInValidDummyFD02();
     SCThresholdConfInitContext(de_ctx,fd);
 
-    m = SigMatchGetLastSMFromLists(sig, 2,
-                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+    m = SigMatchGetLastSMFromLists(sig,
+                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                                   0, NULL);
 
     if(m != NULL)   {
         de = (DetectThresholdData *)m->ctx;
@@ -1638,8 +1650,9 @@ int SCThresholdConfTest05(void)
 
         if(s->id == 1 || s->id == 10 || s->id == 100) {
 
-            m = SigMatchGetLastSMFromLists(s, 2,
-                                           DETECT_THRESHOLD, s->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+            m = SigMatchGetLastSMFromLists(s,
+                                           DETECT_THRESHOLD, s->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                                           0, NULL);
 
             if(m == NULL)   {
                 goto end;
@@ -1692,8 +1705,9 @@ int SCThresholdConfTest06(void)
     fd = SCThresholdConfGenerateValidDummyFD04();
     SCThresholdConfInitContext(de_ctx,fd);
 
-    m = SigMatchGetLastSMFromLists(sig, 2,
-                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+    m = SigMatchGetLastSMFromLists(sig,
+                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                                   0, NULL);
 
     if(m != NULL)   {
         de = (DetectThresholdData *)m->ctx;
@@ -1737,8 +1751,9 @@ int SCThresholdConfTest07(void)
     fd = SCThresholdConfGenerateValidDummyFD05();
     SCThresholdConfInitContext(de_ctx,fd);
 
-    m = SigMatchGetLastSMFromLists(sig, 2,
-                                   DETECT_DETECTION_FILTER, sig->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+    m = SigMatchGetLastSMFromLists(sig,
+                                   DETECT_DETECTION_FILTER, sig->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                                   0, NULL);
 
     if(m != NULL)   {
         de = (DetectThresholdData *)m->ctx;
@@ -1783,8 +1798,9 @@ int SCThresholdConfTest08(void)
     fd = SCThresholdConfGenerateValidDummyFD06();
     SCThresholdConfInitContext(de_ctx,fd);
 
-    m = SigMatchGetLastSMFromLists(sig, 2,
-                                   DETECT_DETECTION_FILTER, sig->sm_lists[DETECT_SM_LIST_THRESHOLD]);
+    m = SigMatchGetLastSMFromLists(sig,
+                                   DETECT_DETECTION_FILTER, sig->sm_lists[DETECT_SM_LIST_THRESHOLD],
+                                   0, NULL);
 
     if(m != NULL)   {
         de = (DetectThresholdData *)m->ctx;
@@ -2292,8 +2308,9 @@ int SCThresholdConfTest13(void)
     fd = SCThresholdConfGenerateValidDummyFD11();
     SCThresholdConfInitContext(de_ctx,fd);
 
-    m = SigMatchGetLastSMFromLists(sig, 2,
-                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_SUPPRESS]);
+    m = SigMatchGetLastSMFromLists(sig,
+                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_SUPPRESS],
+                                   0, NULL);
 
     if (m != NULL)   {
         de = (DetectThresholdData *)m->ctx;
@@ -2782,8 +2799,9 @@ static int SCThresholdConfTest20(void)
     fd = SCThresholdConfGenerateValidDummyFD20();
     SCThresholdConfInitContext(de_ctx,fd);
 
-    m = SigMatchGetLastSMFromLists(sig, 2,
-                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_SUPPRESS]);
+    m = SigMatchGetLastSMFromLists(sig,
+                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_SUPPRESS],
+                                   0, NULL);
     if (m != NULL)   {
         de = (DetectThresholdData *)m->ctx;
         if (de != NULL && (de->type == TYPE_SUPPRESS && de->track == TRACK_SRC)) {
@@ -2842,8 +2860,9 @@ static int SCThresholdConfTest21(void)
     fd = SCThresholdConfGenerateValidDummyFD20();
     SCThresholdConfInitContext(de_ctx,fd);
 
-    m = SigMatchGetLastSMFromLists(sig, 2,
-                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_SUPPRESS]);
+    m = SigMatchGetLastSMFromLists(sig,
+                                   DETECT_THRESHOLD, sig->sm_lists[DETECT_SM_LIST_SUPPRESS],
+                                   0, NULL);
     if (m != NULL)   {
         de = (DetectThresholdData *)m->ctx;
         if (de != NULL && (de->type == TYPE_SUPPRESS && de->track == TRACK_SRC)) {

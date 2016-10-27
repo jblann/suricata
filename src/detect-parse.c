@@ -251,8 +251,9 @@ int DetectEngineContentModifierBufferSetup(DetectEngineCtx *de_ctx, Signature *s
         goto end;
     }
 
-    sm = SigMatchGetLastSMFromLists(s, 2,
-                                    DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH]);
+    sm = SigMatchGetLastSMFromLists(s,
+                                    DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
+                                    0, NULL);
     if (sm == NULL) {
         SCLogError(SC_ERR_INVALID_SIGNATURE, "\"%s\" keyword "
                    "found inside the rule without a content context.  "
@@ -269,9 +270,10 @@ int DetectEngineContentModifierBufferSetup(DetectEngineCtx *de_ctx, Signature *s
         goto end;
     }
     if (cd->flags & (DETECT_CONTENT_WITHIN | DETECT_CONTENT_DISTANCE)) {
-        SigMatch *pm =  SigMatchGetLastSMFromLists(s, 4,
+        SigMatch *pm =  SigMatchGetLastSMFromLists(s,
                                                    DETECT_CONTENT, sm->prev,
-                                                   DETECT_PCRE, sm->prev);
+                                                   DETECT_PCRE, sm->prev,
+                                                   0, NULL);
         if (pm != NULL) {
             if (pm->type == DETECT_CONTENT) {
                 DetectContentData *tmp_cd = (DetectContentData *)pm->ctx;
@@ -282,9 +284,10 @@ int DetectEngineContentModifierBufferSetup(DetectEngineCtx *de_ctx, Signature *s
             }
         }
 
-        pm = SigMatchGetLastSMFromLists(s, 4,
+        pm = SigMatchGetLastSMFromLists(s,
                                         DETECT_CONTENT, s->sm_lists_tail[sm_list],
-                                        DETECT_PCRE, s->sm_lists_tail[sm_list]);
+                                        DETECT_PCRE, s->sm_lists_tail[sm_list],
+                                        0, NULL);
         if (pm != NULL) {
             if (pm->type == DETECT_CONTENT) {
                 DetectContentData *tmp_cd = (DetectContentData *)pm->ctx;
@@ -430,27 +433,20 @@ static SigMatch *SigMatchGetLastSMByType(SigMatch *sm, uint8_t type)
  *
  * \retval Pointer to Last sm.
  */
-SigMatch *SigMatchGetLastSMFromLists(const Signature *s, int args, ...)
+SigMatch *SigMatchGetLastSMFromLists(const Signature *s, ...)
 {
-    if (args == 0 || args % 2 != 0) {
-        SCLogError(SC_ERR_INVALID_ARGUMENTS, "You need to send an even no of args "
-                   "(non zero as well) to this function, since we need a "
-                   "SigMatch list for every SigMatch type(send a map of sm_type "
-                   "and sm_list) sent");
-        /* as this is a bug we should abort to ease debugging */
-        BUG_ON(1);
-    }
-
     SigMatch *sm_last = NULL;
     SigMatch *sm_new;
-    int i;
 
     va_list ap;
-    va_start(ap, args);
+    va_start(ap, s);
 
-    for (i = 0; i < args; i += 2) {
+    for (;;) {
         int sm_type = va_arg(ap, int);
         SigMatch *sm_list = va_arg(ap, SigMatch *);
+        if (sm_type == 0 && sm_list == NULL) {
+            break;
+        }
         sm_new = SigMatchGetLastSMByType(sm_list, sm_type);
         if (sm_new == NULL)
             continue;
@@ -1372,7 +1368,7 @@ int SigValidate(DetectEngineCtx *de_ctx, Signature *s)
     //}
 
     if (s->flags & SIG_FLAG_REQUIRE_PACKET) {
-        pm =  SigMatchGetLastSMFromLists(s, 24,
+        pm =  SigMatchGetLastSMFromLists(s,
                 DETECT_REPLACE, s->sm_lists_tail[DETECT_SM_LIST_UMATCH],
                 DETECT_REPLACE, s->sm_lists_tail[DETECT_SM_LIST_HRUDMATCH],
                 DETECT_REPLACE, s->sm_lists_tail[DETECT_SM_LIST_HCBDMATCH],
@@ -1385,7 +1381,8 @@ int SigValidate(DetectEngineCtx *de_ctx, Signature *s)
                 DETECT_REPLACE, s->sm_lists_tail[DETECT_SM_LIST_HCDMATCH],
                 DETECT_REPLACE, s->sm_lists_tail[DETECT_SM_LIST_HUADMATCH],
                 DETECT_REPLACE, s->sm_lists_tail[DETECT_SM_LIST_HHHDMATCH],
-                DETECT_REPLACE, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH]);
+                DETECT_REPLACE, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH],
+                0, NULL);
         if (pm != NULL) {
             SCLogError(SC_ERR_INVALID_SIGNATURE, "Signature has"
                 " replace keyword linked with a modified content"

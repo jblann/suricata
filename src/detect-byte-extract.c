@@ -542,19 +542,21 @@ int DetectByteExtractSetup(DetectEngineCtx *de_ctx, Signature *s, char *arg)
         sm_list = s->list;
         s->flags |= SIG_FLAG_APPLAYER;
         if (data->flags & DETECT_BYTE_EXTRACT_FLAG_RELATIVE) {
-            prev_pm = SigMatchGetLastSMFromLists(s, 4,
+            prev_pm = SigMatchGetLastSMFromLists(s,
                                                  DETECT_CONTENT, s->sm_lists_tail[sm_list],
-                                                 DETECT_PCRE, s->sm_lists_tail[sm_list]);
+                                                 DETECT_PCRE, s->sm_lists_tail[sm_list],
+                                                 0, NULL);
         }
     } else if (data->endian == DETECT_BYTE_EXTRACT_ENDIAN_DCE) {
         if (data->flags & DETECT_BYTE_EXTRACT_FLAG_RELATIVE) {
-            prev_pm = SigMatchGetLastSMFromLists(s, 12,
+            prev_pm = SigMatchGetLastSMFromLists(s,
                                                  DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
                                                  DETECT_PCRE, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
                                                  DETECT_BYTETEST, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
                                                  DETECT_BYTEJUMP, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
                                                  DETECT_BYTE_EXTRACT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
-                                                 DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH]);
+                                                 DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
+                                                 0, NULL);
             if (prev_pm == NULL) {
                 sm_list = DETECT_SM_LIST_PMATCH;
             } else {
@@ -570,7 +572,7 @@ int DetectByteExtractSetup(DetectEngineCtx *de_ctx, Signature *s, char *arg)
         s->flags |= SIG_FLAG_APPLAYER;
 
     } else if (data->flags & DETECT_BYTE_EXTRACT_FLAG_RELATIVE) {
-        prev_pm = SigMatchGetLastSMFromLists(s, 168,
+        prev_pm = SigMatchGetLastSMFromLists(s,
                                              DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
                                              DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_UMATCH],
                                              DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HCBDMATCH],
@@ -659,7 +661,8 @@ int DetectByteExtractSetup(DetectEngineCtx *de_ctx, Signature *s, char *arg)
                                              DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HSCDMATCH],
                                              DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HUADMATCH],
                                              DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HHHDMATCH],
-                                             DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH]);
+                                             DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH],
+                                             0, NULL);
         if (prev_pm == NULL) {
             sm_list = DETECT_SM_LIST_PMATCH;
         } else {
@@ -691,8 +694,9 @@ int DetectByteExtractSetup(DetectEngineCtx *de_ctx, Signature *s, char *arg)
         }
     }
 
-    SigMatch *prev_bed_sm = SigMatchGetLastSMFromLists(s, 2,
-                                                       DETECT_BYTE_EXTRACT, s->sm_lists_tail[sm_list]);
+    SigMatch *prev_bed_sm = SigMatchGetLastSMFromLists(s,
+                                                       DETECT_BYTE_EXTRACT, s->sm_lists_tail[sm_list],
+                                                       0, NULL);
     if (prev_bed_sm == NULL)
         data->local_id = 0;
     else

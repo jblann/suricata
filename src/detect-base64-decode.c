@@ -196,15 +196,16 @@ static int DetectBase64DecodeSetup(DetectEngineCtx *de_ctx, Signature *s,
         sm_list = s->list;
 #if 0
         if (data->relative) {
-            pm = SigMatchGetLastSMFromLists(s, 4,
+            pm = SigMatchGetLastSMFromLists(s
                 DETECT_CONTENT, s->sm_lists_tail[sm_list],
-                DETECT_PCRE, s->sm_lists_tail[sm_list]);
+                DETECT_PCRE, s->sm_lists_tail[sm_list],
+                0, NULL);
         }
 #endif
     }
     else {
         /* Copied from detect-isdataat.c. */
-        pm = SigMatchGetLastSMFromLists(s, 168,
+        pm = SigMatchGetLastSMFromLists(s,
             DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
             DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_UMATCH],
             DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HCBDMATCH],
@@ -288,7 +289,8 @@ static int DetectBase64DecodeSetup(DetectEngineCtx *de_ctx, Signature *s,
             DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HSCDMATCH],
             DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HUADMATCH],
             DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HHHDMATCH],
-            DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH]);
+            DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH],
+            0, NULL);
         if (pm == NULL) {
             sm_list = DETECT_SM_LIST_PMATCH;
         }

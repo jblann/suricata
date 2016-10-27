@@ -104,8 +104,9 @@ int DetectReplaceSetup(DetectEngineCtx *de_ctx, Signature *s, char *replacestr)
     }
 
     /* add to the latest "content" keyword from either dmatch or pmatch */
-    pm =  SigMatchGetLastSMFromLists(s, 2,
-            DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH]);
+    pm =  SigMatchGetLastSMFromLists(s,
+            DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
+            0, NULL);
     if (pm == NULL) {
         SCLogError(SC_ERR_WITHIN_MISSING_CONTENT, "replace needs"
                 "preceding content option for raw sig");

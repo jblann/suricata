@@ -194,7 +194,7 @@ static int DetectFastPatternSetup(DetectEngineCtx *de_ctx, Signature *s, char *a
         return -1;
     }
 
-    SigMatch *pm = SigMatchGetLastSMFromLists(s, 28,
+    SigMatch *pm = SigMatchGetLastSMFromLists(s,
             DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
             DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_UMATCH],
             DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HCBDMATCH],
@@ -213,7 +213,8 @@ static int DetectFastPatternSetup(DetectEngineCtx *de_ctx, Signature *s, char *a
             DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_DNSQUERYNAME_MATCH],
             DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_TLSSNI_MATCH],
             DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_TLSISSUER_MATCH],
-            DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_TLSSUBJECT_MATCH]);
+            DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_TLSSUBJECT_MATCH],
+            0, NULL);
     if (pm == NULL) {
         SCLogError(SC_ERR_INVALID_SIGNATURE, "fast_pattern found inside "
                    "the rule, without a content context. Please use a "

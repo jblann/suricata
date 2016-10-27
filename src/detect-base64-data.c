@@ -45,7 +45,7 @@ static int DetectBase64DataSetup(DetectEngineCtx *de_ctx, Signature *s,
     SigMatch *pm = NULL;
 
     /* Check for a preceding base64_decode. */
-    pm = SigMatchGetLastSMFromLists(s, 28,
+    pm = SigMatchGetLastSMFromLists(s,
         DETECT_BASE64_DECODE, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
         DETECT_BASE64_DECODE, s->sm_lists_tail[DETECT_SM_LIST_UMATCH],
         DETECT_BASE64_DECODE, s->sm_lists_tail[DETECT_SM_LIST_HCBDMATCH],
@@ -59,7 +59,8 @@ static int DetectBase64DataSetup(DetectEngineCtx *de_ctx, Signature *s,
         DETECT_BASE64_DECODE, s->sm_lists_tail[DETECT_SM_LIST_HSCDMATCH],
         DETECT_BASE64_DECODE, s->sm_lists_tail[DETECT_SM_LIST_HUADMATCH],
         DETECT_BASE64_DECODE, s->sm_lists_tail[DETECT_SM_LIST_HHHDMATCH],
-        DETECT_BASE64_DECODE, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH]);
+        DETECT_BASE64_DECODE, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH],
+        0, NULL);
     if (pm == NULL) {
         SCLogError(SC_ERR_INVALID_SIGNATURE,
             "\"base64_data\" keyword seen without preceding base64_decode.");

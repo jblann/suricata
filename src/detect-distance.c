@@ -82,9 +82,11 @@ static int DetectDistanceSetup (DetectEngineCtx *de_ctx, Signature *s,
 
     /* retrive the sm to apply the depth against */
     if (s->list != DETECT_SM_LIST_NOTSET) {
-        pm = SigMatchGetLastSMFromLists(s, 2, DETECT_CONTENT, s->sm_lists_tail[s->list]);
+        pm = SigMatchGetLastSMFromLists(s,
+            DETECT_CONTENT, s->sm_lists_tail[s->list],
+            0, NULL);
     } else {
-        pm =  SigMatchGetLastSMFromLists(s, 28,
+        pm =  SigMatchGetLastSMFromLists(s,
                                          DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
                                          DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_UMATCH],
                                          DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HRUDMATCH],
@@ -98,7 +100,8 @@ static int DetectDistanceSetup (DetectEngineCtx *de_ctx, Signature *s,
                                          DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HSMDMATCH],
                                          DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HUADMATCH],
                                          DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HHHDMATCH],
-                                         DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH]);
+                                         DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH],
+                                         0, NULL);
     }
     if (pm == NULL) {
         SCLogError(SC_ERR_OFFSET_MISSING_CONTENT, "distance needs "
@@ -147,9 +150,10 @@ static int DetectDistanceSetup (DetectEngineCtx *de_ctx, Signature *s,
     }
     cd->flags |= DETECT_CONTENT_DISTANCE;
 
-    SigMatch *prev_pm = SigMatchGetLastSMFromLists(s, 4,
+    SigMatch *prev_pm = SigMatchGetLastSMFromLists(s,
                                                    DETECT_CONTENT, pm->prev,
-                                                   DETECT_PCRE, pm->prev);
+                                                   DETECT_PCRE, pm->prev,
+                                                   0, NULL);
     if (prev_pm == NULL) {
         ret = 0;
         goto end;

@@ -74,9 +74,11 @@ static int DetectDepthSetup (DetectEngineCtx *de_ctx, Signature *s, char *depths
 
     /* retrive the sm to apply the depth against */
     if (s->list != DETECT_SM_LIST_NOTSET) {
-        pm = SigMatchGetLastSMFromLists(s, 2, DETECT_CONTENT, s->sm_lists_tail[s->list]);
+        pm = SigMatchGetLastSMFromLists(s,
+            DETECT_CONTENT, s->sm_lists_tail[s->list],
+            0, NULL);
     } else {
-        pm =  SigMatchGetLastSMFromLists(s, 28,
+        pm =  SigMatchGetLastSMFromLists(s,
                                          DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
                                          DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_UMATCH],
                                          DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HRUDMATCH],
@@ -90,7 +92,8 @@ static int DetectDepthSetup (DetectEngineCtx *de_ctx, Signature *s, char *depths
                                          DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HSMDMATCH],
                                          DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HUADMATCH],
                                          DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HHHDMATCH],
-                                         DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH]);
+                                         DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH],
+                                         0, NULL);
     }
     if (pm == NULL) {
         SCLogError(SC_ERR_DEPTH_MISSING_CONTENT, "depth needs "

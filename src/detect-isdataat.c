@@ -218,12 +218,13 @@ int DetectIsdataatSetup (DetectEngineCtx *de_ctx, Signature *s, char *isdataatst
         sm_list = s->list;
         s->flags |= SIG_FLAG_APPLAYER;
         if (idad->flags & ISDATAAT_RELATIVE) {
-            prev_pm = SigMatchGetLastSMFromLists(s, 4,
+            prev_pm = SigMatchGetLastSMFromLists(s,
                                                  DETECT_CONTENT, s->sm_lists_tail[sm_list],
-                                                 DETECT_PCRE, s->sm_lists_tail[sm_list]);
+                                                 DETECT_PCRE, s->sm_lists_tail[sm_list],
+                                                 0, NULL);
         }
     } else if (idad->flags & ISDATAAT_RELATIVE) {
-        prev_pm = SigMatchGetLastSMFromLists(s, 168,
+        prev_pm = SigMatchGetLastSMFromLists(s,
                                              DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_PMATCH],
                                              DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_UMATCH],
                                              DETECT_CONTENT, s->sm_lists_tail[DETECT_SM_LIST_HCBDMATCH],
@@ -312,7 +313,8 @@ int DetectIsdataatSetup (DetectEngineCtx *de_ctx, Signature *s, char *isdataatst
                                              DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HSCDMATCH],
                                              DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HUADMATCH],
                                              DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HHHDMATCH],
-                                             DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH]);
+                                             DETECT_ISDATAAT, s->sm_lists_tail[DETECT_SM_LIST_HRHHDMATCH],
+                                             0, NULL);
         if (prev_pm == NULL)
             sm_list = DETECT_SM_LIST_PMATCH;
         else {
