@@ -55,17 +55,40 @@ static void state_pop(SCJson *js)
  */
 static inline void encode_string(SCJson *js, size_t offset, const char *val)
 {
-    BUG_ON(js->size - offset < strlen(val));
+    BUG_ON(js->size - offset < (strlen(val) * 2));
     js->buf[offset++] = '"';
     bool done = false;
     for (size_t i = 0; !done; i++, offset++) {
         switch (val[i]) {
-            case '"':
+            case '"': /* Double quote. */
+            case '\\': /* Backslash. */
+            case '/': /* Slash. */
                 js->buf[offset++] = '\\';
                 break;
+            case '\n': /* New line. */
+                js->buf[offset++] = '\\';
+                js->buf[offset++] = 'n';
+                continue;
+            case '\r': /* Carriage return. */
+                js->buf[offset++] = '\\';
+                js->buf[offset++] = 'r';
+                continue;
+            case '\t': /* Tab. */
+                js->buf[offset++] = '\\';
+                js->buf[offset++] = 't';
+                continue;
+            case 0x0c: /* Form feed. */
+                js->buf[offset++] = '\\';
+                js->buf[offset++] = 'f';
+                continue;
+            case 0x08: /* Back space. */
+                js->buf[offset++] = '\\';
+                js->buf[offset++] = 'b';
+                continue;
             case '\0':
                 js->buf[offset++] = '"';
                 done = true;
+                break;
             default:
                 break;
         }
