@@ -10,10 +10,12 @@
 #define STATES 256
 
 enum SCJsonState {
-    OBJECT_FIRST = 1,
+    NEW = 0,
+    OBJECT_FIRST,
     OBJECT_NTH,
     LIST_FIRST,
     LIST_NTH,
+    CLOSED,
 };
 
 typedef struct SCJson_ {
@@ -21,6 +23,7 @@ typedef struct SCJson_ {
     size_t size;
     int state[STATES];
     int state_id;
+    bool growable;
 } SCJson;
 
 static uint8_t state(SCJson *js)
@@ -81,7 +84,9 @@ static bool SCJsonCheckSize(SCJson *js, size_t n)
     size_t required = strlen(js->buf) + n + 1;
 
     if (required > js->size) {
-        printf("expanding string\n");
+        if (!js->growable) {
+            return false;
+        }
         size_t len = required * 2;
         char *buf = SCRealloc(js->buf, len);
         if (buf != NULL) {
@@ -104,15 +109,30 @@ SCJson *SCJsonNew(void)
             return NULL;
         }
         js->size = INITIAL_SIZE;
-     }
-        
+        js->growable = true;
+    }
+
+    return js;
+}
+
+SCJson *SCJsonWrap(char *buf, size_t size)
+{
+    SCJson *js = SCCalloc(1, sizeof(*js));
+    if (js != NULL) {
+        js->buf = buf;
+        js->size = size;
+        js->growable = false;
+    }
+
     return js;
 }
 
 void SCJsonFree(SCJson *js)
 {
     if (js != NULL) {
-        SCFree(js->buf);
+        if (js->growable) {
+            SCFree(js->buf);
+        }
     }
     SCFree(js);
 }
@@ -126,10 +146,15 @@ const char *SCJsonGetBuf(SCJson *js)
  * \brief Opens a JSON object, or more simply write a "{" to the
  *     buffer.
  */
-void SCJsonOpenObject(SCJson *js)
+bool SCJsonOpenObject(SCJson *js)
 {
+    if (!SCJsonCheckSize(js, 1)) {
+        return false;
+    }
     strncat(js->buf, "{", 1);
+    state_set(js, CLOSED);
     state_push(js, OBJECT_FIRST);
+    return true;
 }
 
 /**
@@ -138,6 +163,9 @@ void SCJsonOpenObject(SCJson *js)
  */
 bool SCJsonCloseObject(SCJson *js)
 {
+    if (!SCJsonCheckSize(js, 1)) {
+        return false;
+    }
     switch (state(js)) {
         case OBJECT_FIRST:
         case OBJECT_NTH:
@@ -158,7 +186,9 @@ bool SCJsonSetObject(SCJson *js, const char *key)
     size_t len = strlen(key) + 5;
     char scratch[len];
 
-    SCJsonCheckSize(js, len);
+    if (!SCJsonCheckSize(js, len)) {
+        return false;
+    }
 
     if (js->state[js->state_id] == OBJECT_NTH) {
         strncat(js->buf, ",", 1);
@@ -182,7 +212,9 @@ bool SCJsonSetList(SCJson *js, const char *key)
     size_t len = strlen(key) + 5;
     char scratch[len];
 
-    SCJsonCheckSize(js, len);
+    if (!SCJsonCheckSize(js, len)) {
+        return false;
+    }
 
     if (state(js) == OBJECT_NTH) {
         strncat(js->buf, ",", 1);
@@ -202,6 +234,10 @@ bool SCJsonSetList(SCJson *js, const char *key)
  */
 bool SCJsonCloseList(SCJson *js)
 {
+    if (!SCJsonCheckSize(js, 1)) {
+        return false;
+    }
+
     switch (state(js)) {
         case LIST_FIRST:
         case LIST_NTH:
@@ -219,11 +255,22 @@ bool SCJsonSetString(SCJson *js, const char *key, const char *val)
     if (val == NULL) {
         val = "";
     }
-            
-    size_t len = strlen(val) + 6;
+
+    /* The size is:
+     * - quote
+     * - strlen(key)
+     * - quote
+     * - colon
+     * - quote
+     * - strlen(val) * 2
+     * - quote
+     */
+    size_t len = 5 + strlen(key) + (strlen(val) * 2);
     char scratch[len];
 
-    SCJsonCheckSize(js, len);
+    if (!SCJsonCheckSize(js, len)) {
+        return false;
+    }
 
     if (state(js) == OBJECT_NTH) {
         strncat(js->buf, ",", 1);
@@ -239,12 +286,14 @@ bool SCJsonSetString(SCJson *js, const char *key, const char *val)
     return true;
 }
 
-void SCJsonSetInt(SCJson *js, const char *key, const intmax_t val)
+bool SCJsonSetInt(SCJson *js, const char *key, const intmax_t val)
 {
     size_t len = strlen(key) + 32 + 4;
     char scratch[len];
 
-    SCJsonCheckSize(js, len);
+    if (!SCJsonCheckSize(js, len)) {
+        return false;
+    }
 
     if (state(js) == OBJECT_NTH) {
         strncat(js->buf, ",", 1);
@@ -254,6 +303,8 @@ void SCJsonSetInt(SCJson *js, const char *key, const intmax_t val)
     strncat(js->buf, scratch, len);
 
     state_set(js, OBJECT_NTH);
+
+    return true;
 }
 
 bool SCJsonSetBool(SCJson *js, const char *key, const bool val)
@@ -262,7 +313,9 @@ bool SCJsonSetBool(SCJson *js, const char *key, const bool val)
     size_t len = strlen(key) + 9;
     char scratch[len];
 
-    SCJsonCheckSize(js, len);
+    if (!SCJsonCheckSize(js, len)) {
+        return false;
+    }
 
     if (state(js) == OBJECT_NTH) {
         strncat(js->buf, ",", 1);
@@ -283,7 +336,9 @@ bool SCJsonSetBool(SCJson *js, const char *key, const bool val)
 
 bool SCJsonAppendString(SCJson *js, const char *val)
 {
-    SCJsonCheckSize(js, strlen(val) * 2);
+    if (!SCJsonCheckSize(js, strlen(val) * 2)) {
+        return false;
+    }
 
     switch (state(js)) {
         case LIST_NTH:
@@ -293,7 +348,7 @@ bool SCJsonAppendString(SCJson *js, const char *val)
         default:
             return false;
     }
-        
+
     encode_string(js, strlen(js->buf), val);
     state_set(js, LIST_NTH);
 
@@ -305,7 +360,9 @@ bool SCJsonAppendInt(SCJson *js, const intmax_t val)
     int len = 32 + 4;
     char scratch[len];
 
-    SCJsonCheckSize(js, len);
+    if (!SCJsonCheckSize(js, len)) {
+        return false;
+    }
 
     switch (state(js)) {
         case LIST_NTH:
@@ -408,7 +465,7 @@ static int UtilJsonTest01(void)
     FAIL_IF(strcmp(js->buf, expected));
 
     FAIL_IF_NOT(SCJsonCloseObject(js));
-    FAIL_IF(state(js) != 0);
+    FAIL_IF(state(js) != CLOSED);
     expected = "{"
         "\"one\":\"one\""
         ",\"two\":\"val with \\\"quote\\\"\""
@@ -448,6 +505,41 @@ static int UtilJsonTestGrow(void)
     PASS;
 }
 
+static int UtilJsonTestWrapped(void)
+{
+    /* Create a buffer big enough for {"a":"aa"
+     *
+     * As this is 9 chars we need 10 for the NULL byte. But we also
+     * require enough space fo the val to double size for escaping
+     * reasons. So we actually need 12. */
+    size_t size = 12;
+    char wrapped[size];
+    wrapped[0] = '\0';
+
+    SCJson *js = SCJsonWrap(wrapped, size);
+    FAIL_IF_NULL(js);
+
+    FAIL_IF_NOT(SCJsonOpenObject(js));
+    FAIL_IF(strlen(js->buf) != 1);
+
+    /* This will add: "a":"aaa" (9 chars).  With a size of 12, and one
+     * char already written we only have room for 8 chars to keep the
+     * NUL byte.
+     *
+     * If this was allowed we'd overwrite the NUL byte.
+     */
+    FAIL_IF(SCJsonSetString(js, "a", "aaa"));
+
+    /* But adding only 7 chars should work. */
+    FAIL_IF_NOT(SCJsonSetString(js, "a", "aa"));
+    FAIL_IF(strlen(js->buf) != 9);
+    FAIL_IF(strcmp(js->buf, "{\"a\":\"aa\""));
+
+    SCJsonFree(js);
+
+    PASS;
+}
+
 #endif /* UNITTESTS */
 
 void UtilJsonRegisterTests(void)
@@ -455,5 +547,6 @@ void UtilJsonRegisterTests(void)
 #ifdef UNITTESTS
     UtRegisterTest("UtilJsonTest01", UtilJsonTest01);
     UtRegisterTest("UtilJsonTestGrow", UtilJsonTestGrow);
+    UtRegisterTest("UtilJsonTestWrapped", UtilJsonTestWrapped);
 #endif
 }
