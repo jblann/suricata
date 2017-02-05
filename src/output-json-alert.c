@@ -174,8 +174,7 @@ static void AlertJsonDnp3(const Flow *f, json_t *js)
 }
 #endif
 
-#if 0
-void AlertJsonHeader(const Packet *p, const PacketAlert *pa, json_t *js)
+void AlertJsonHeader(const Packet *p, const PacketAlert *pa, SCJson *js)
 {
     char *action = "allowed";
     /* use packet action if rate_filter modified the action */
@@ -193,33 +192,25 @@ void AlertJsonHeader(const Packet *p, const PacketAlert *pa, json_t *js)
     }
 
     /* Add tx_id to root element for correlation with other events. */
-    json_object_del(js, "tx_id");
     if (pa->flags & PACKET_ALERT_FLAG_TX)
-        json_object_set_new(js, "tx_id", json_integer(pa->tx_id));
+        SCJsonSetInt(js, "tx_id", pa->tx_id);
 
-    json_t *ajs = json_object();
-    if (ajs == NULL) {
-        json_decref(js);
-        return;
-    }
+    SCJsonSetObject(js, "alert");
 
-    json_object_set_new(ajs, "action", json_string(action));
-    json_object_set_new(ajs, "gid", json_integer(pa->s->gid));
-    json_object_set_new(ajs, "signature_id", json_integer(pa->s->id));
-    json_object_set_new(ajs, "rev", json_integer(pa->s->rev));
-    json_object_set_new(ajs, "signature",
-            json_string((pa->s->msg) ? pa->s->msg : ""));
-    json_object_set_new(ajs, "category",
-            json_string((pa->s->class_msg) ? pa->s->class_msg : ""));
-    json_object_set_new(ajs, "severity", json_integer(pa->s->prio));
+    SCJsonSetString(js, "action", action);
+    SCJsonSetInt(js, "gid", pa->s->gid);
+    SCJsonSetInt(js, "signature_id", pa->s->id);
+    SCJsonSetInt(js, "rev", pa->s->rev);
+    SCJsonSetString(js, "signature", (pa->s->msg) ? pa->s->msg : "");
+    SCJsonSetString(js, "category", (pa->s->class_msg) ? pa->s->class_msg : "");
+    SCJsonSetInt(js, "severity", pa->s->prio);
 
     if (p->tenant_id > 0)
-        json_object_set_new(ajs, "tenant_id", json_integer(p->tenant_id));
+        SCJsonSetInt(js, "tenant_id", p->tenant_id);
 
-    /* alert */
-    json_object_set_new(js, "alert", ajs);
+    /* Close off alert. */
+    SCJsonCloseObject(js);
 }
-#endif
 
 #if 0
 static void AlertJsonPacket(const Packet *p, json_t *js)
@@ -242,18 +233,13 @@ static void AlertJsonPacket(const Packet *p, json_t *js)
 
 static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
 {
-#if 0
     MemBuffer *payload = aft->payload_buffer;
     AlertJsonOutputCtx *json_output_ctx = aft->json_output_ctx;
-    json_t *hjs = NULL;
+    //json_t *hjs = NULL;
 
     int i;
 
     if (p->alerts.cnt == 0 && !(p->flags & PKT_HAS_TAG))
-        return TM_ECODE_OK;
-
-    json_t *js = CreateJSONHeader((Packet *)p, 0, "alert");
-    if (unlikely(js == NULL))
         return TM_ECODE_OK;
 
     for (i = 0; i < p->alerts.cnt; i++) {
@@ -261,6 +247,10 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
         if (unlikely(pa->s == NULL)) {
             continue;
         }
+
+        SCJson *js = CreateJSONHeader((Packet *)p, 0, "alert");
+        if (unlikely(js == NULL))
+            return TM_ECODE_OK;
 
         MemBufferReset(aft->json_buffer);
 
@@ -436,14 +426,17 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
                 }
             }
         }
+#endif
+
+        /* Close off JSON. */
+        SCJsonCloseObject(js);
 
         OutputJSONBuffer(js, aft->file_ctx, &aft->json_buffer);
-        json_object_del(js, "alert");
-    }
-#endif    
-    json_object_clear(js);
-    json_decref(js);
 
+        SCJsonFree(js);
+    }
+
+#if 0
     if ((p->flags & PKT_HAS_TAG) && (json_output_ctx->flags &
             LOG_JSON_TAGGED_PACKETS)) {
         MemBufferReset(aft->json_buffer);
