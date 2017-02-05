@@ -323,7 +323,7 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
         }
 #endif
 
-#if 0
+#if 1
         /* payload */
         if (json_output_ctx->flags & (LOG_JSON_PAYLOAD | LOG_JSON_PAYLOAD_BASE64)) {
             int stream = (p->proto == IPPROTO_TCP) ?
@@ -350,7 +350,7 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
                     unsigned long len = json_output_ctx->payload_buffer_size * 2;
                     uint8_t encoded[len];
                     Base64Encode(payload->buffer, payload->offset, encoded, &len);
-                    json_object_set_new(js, "payload", json_string((char *)encoded));
+                    SCJsonSetString(js, "payload", (char *)encoded);
                 }
 
                 if (json_output_ctx->flags & LOG_JSON_PAYLOAD) {
@@ -359,8 +359,8 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
                     PrintStringsToBuffer(printable_buf, &offset,
                                      sizeof(printable_buf),
                                      payload->buffer, payload->offset);
-                    json_object_set_new(js, "payload_printable",
-                                        json_string((char *)printable_buf));
+                    SCJsonSetString(js, "payload_printable",
+                        (char *)printable_buf);
                 }
             } else {
                 /* This is a single packet and not a stream */
@@ -368,7 +368,7 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
                     unsigned long len = p->payload_len * 2 + 1;
                     uint8_t encoded[len];
                     if (Base64Encode(p->payload, p->payload_len, encoded, &len) == SC_BASE64_OK) {
-                        json_object_set_new(js, "payload", json_string((char *)encoded));
+                        SCJsonSetString(js, "payload", (char *)encoded);
                     }
                 }
 
@@ -379,11 +379,12 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
                                      p->payload_len + 1,
                                      p->payload, p->payload_len);
                     printable_buf[p->payload_len] = '\0';
-                    json_object_set_new(js, "payload_printable", json_string((char *)printable_buf));
+                    SCJsonSetString(js, "payload_printable",
+                        (char *)printable_buf);
                 }
             }
 
-            json_object_set_new(js, "stream", json_integer(stream));
+            SCJsonSetInt(js, "stream", stream);
         }
 #endif
 
