@@ -70,8 +70,6 @@
 
 #define MODULE_NAME "JsonAlertLog"
 
-#ifdef HAVE_LIBJANSSON
-
 #define LOG_JSON_PAYLOAD        0x001
 #define LOG_JSON_PACKET         0x002
 #define LOG_JSON_PAYLOAD_BASE64 0x004
@@ -109,6 +107,7 @@ static int AlertJsonDumpStreamSegmentCallback(const Packet *p, void *data, uint8
     return 1;
 }
 
+#if 0
 static void AlertJsonTls(const Flow *f, json_t *js)
 {
     SSLState *ssl_state = (SSLState *)FlowGetAppState(f);
@@ -125,7 +124,9 @@ static void AlertJsonTls(const Flow *f, json_t *js)
 
     return;
 }
+#endif
 
+#if 0
 static void AlertJsonSsh(const Flow *f, json_t *js)
 {
     SshState *ssh_state = (SshState *)FlowGetAppState(f);
@@ -141,6 +142,7 @@ static void AlertJsonSsh(const Flow *f, json_t *js)
 
     return;
 }
+#endif
 
 static void AlertJsonDnp3(const Flow *f, json_t *js)
 {
@@ -260,6 +262,7 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
         /* alert */
         AlertJsonHeader(p, pa, js);
 
+#if 0 /* ISH */
         if (json_output_ctx->flags & LOG_JSON_HTTP) {
             if (p->flow != NULL) {
                 uint16_t proto = FlowGetAppProtocol(p->flow);
@@ -272,7 +275,9 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
                 }
             }
         }
+#endif
 
+#if 0 /* ISH */
         if (json_output_ctx->flags & LOG_JSON_TLS) {
             if (p->flow != NULL) {
                 uint16_t proto = FlowGetAppProtocol(p->flow);
@@ -282,7 +287,9 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
                     AlertJsonTls(p->flow, js);
             }
         }
+#endif
 
+#if 0 /* ISH */
         if (json_output_ctx->flags & LOG_JSON_SSH) {
             if (p->flow != NULL) {
                 uint16_t proto = FlowGetAppProtocol(p->flow);
@@ -292,7 +299,9 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
                     AlertJsonSsh(p->flow, js);
             }
         }
+#endif
 
+#if 0 /* ISH */
         if (json_output_ctx->flags & LOG_JSON_SMTP) {
             if (p->flow != NULL) {
                 uint16_t proto = FlowGetAppProtocol(p->flow);
@@ -309,7 +318,9 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
                 }
             }
         }
+#endif
 
+#if 0 /* ISH */
         if (json_output_ctx->flags & LOG_JSON_DNP3) {
             if (p->flow != NULL) {
                 uint16_t proto = FlowGetAppProtocol(p->flow);
@@ -318,7 +329,9 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
                 }
             }
         }
+#endif
 
+#if 0
         /* payload */
         if (json_output_ctx->flags & (LOG_JSON_PAYLOAD | LOG_JSON_PAYLOAD_BASE64)) {
             int stream = (p->proto == IPPROTO_TCP) ?
@@ -380,12 +393,16 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
 
             json_object_set_new(js, "stream", json_integer(stream));
         }
+#endif
 
+#if 0
         /* base64-encoded full packet */
         if (json_output_ctx->flags & LOG_JSON_PACKET) {
             AlertJsonPacket(p, js);
         }
+#endif
 
+#if 0
         HttpXFFCfg *xff_cfg = json_output_ctx->xff_cfg;
 
         /* xff header */
@@ -418,6 +435,7 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
         OutputJSONBuffer(js, aft->file_ctx, &aft->json_buffer);
         json_object_del(js, "alert");
     }
+#endif    
     json_object_clear(js);
     json_decref(js);
 
@@ -793,12 +811,3 @@ void JsonAlertLogRegister (void)
         JsonAlertLogCondition, JsonAlertLogThreadInit, JsonAlertLogThreadDeinit,
         NULL);
 }
-
-#else
-
-void JsonAlertLogRegister (void)
-{
-}
-
-#endif
-
