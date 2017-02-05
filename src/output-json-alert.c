@@ -212,22 +212,19 @@ void AlertJsonHeader(const Packet *p, const PacketAlert *pa, SCJson *js)
     SCJsonCloseObject(js);
 }
 
-#if 0
-static void AlertJsonPacket(const Packet *p, json_t *js)
+#if 1
+static void AlertJsonPacket(const Packet *p, SCJson *js)
 {
     unsigned long len = GET_PKT_LEN(p) * 2;
     uint8_t encoded_packet[len];
     Base64Encode((unsigned char*) GET_PKT_DATA(p), GET_PKT_LEN(p),
         encoded_packet, &len);
-    json_object_set_new(js, "packet", json_string((char *)encoded_packet));
+    SCJsonSetString(js, "packet", (char *)encoded_packet);
 
     /* Create packet info. */
-    json_t *packetinfo_js = json_object();
-    if (unlikely(packetinfo_js == NULL)) {
-        return;
-    }
-    json_object_set_new(packetinfo_js, "linktype", json_integer(p->datalink));
-    json_object_set_new(js, "packet_info", packetinfo_js);
+    SCJsonSetObject(js, "packet_info");
+    SCJsonSetInt(js, "linktype", p->datalink);
+    SCJsonCloseObject(js);
 }
 #endif
 
@@ -390,12 +387,10 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
         }
 #endif
 
-#if 0
         /* base64-encoded full packet */
         if (json_output_ctx->flags & LOG_JSON_PACKET) {
             AlertJsonPacket(p, js);
         }
-#endif
 
 #if 0
         HttpXFFCfg *xff_cfg = json_output_ctx->xff_cfg;
