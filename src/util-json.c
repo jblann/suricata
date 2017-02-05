@@ -58,7 +58,7 @@ static inline void encode_string(SCJson *js, size_t offset, const char *val)
     BUG_ON(js->size - offset < (strlen(val) * 2));
     js->buf[offset++] = '"';
     bool done = false;
-    for (size_t i = 0; !done; i++, offset++) {
+    for (size_t i = 0; !done; i++) {
         switch (val[i]) {
             case '"': /* Double quote. */
             case '\\': /* Backslash. */
@@ -92,7 +92,7 @@ static inline void encode_string(SCJson *js, size_t offset, const char *val)
             default:
                 break;
         }
-        js->buf[offset] = val[i];
+        js->buf[offset++] = val[i];
     }
 }
 
