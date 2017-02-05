@@ -212,7 +212,6 @@ void AlertJsonHeader(const Packet *p, const PacketAlert *pa, SCJson *js)
     SCJsonCloseObject(js);
 }
 
-#if 1
 static void AlertJsonPacket(const Packet *p, SCJson *js)
 {
     unsigned long len = GET_PKT_LEN(p) * 2;
@@ -226,7 +225,6 @@ static void AlertJsonPacket(const Packet *p, SCJson *js)
     SCJsonSetInt(js, "linktype", p->datalink);
     SCJsonCloseObject(js);
 }
-#endif
 
 static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
 {
@@ -323,7 +321,6 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
         }
 #endif
 
-#if 1
         /* payload */
         if (json_output_ctx->flags & (LOG_JSON_PAYLOAD | LOG_JSON_PAYLOAD_BASE64)) {
             int stream = (p->proto == IPPROTO_TCP) ?
@@ -386,14 +383,12 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
 
             SCJsonSetInt(js, "stream", stream);
         }
-#endif
 
         /* base64-encoded full packet */
         if (json_output_ctx->flags & LOG_JSON_PACKET) {
             AlertJsonPacket(p, js);
         }
 
-#if 0
         HttpXFFCfg *xff_cfg = json_output_ctx->xff_cfg;
 
         /* xff header */
@@ -411,18 +406,17 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
 
             if (have_xff_ip) {
                 if (xff_cfg->flags & XFF_EXTRADATA) {
-                    json_object_set_new(js, "xff", json_string(buffer));
+                    SCJsonSetString(js, "xff", buffer);
                 }
                 else if (xff_cfg->flags & XFF_OVERWRITE) {
                     if (p->flowflags & FLOW_PKT_TOCLIENT) {
-                        json_object_set(js, "dest_ip", json_string(buffer));
+                        SCJsonSetString(js, "dest_ip", buffer);
                     } else {
-                        json_object_set(js, "src_ip", json_string(buffer));
+                        SCJsonSetString(js, "src_ip", buffer);
                     }
                 }
             }
         }
-#endif
 
         /* Close off JSON. */
         SCJsonCloseObject(js);
@@ -432,18 +426,17 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
         SCJsonFree(js);
     }
 
-#if 0
     if ((p->flags & PKT_HAS_TAG) && (json_output_ctx->flags &
             LOG_JSON_TAGGED_PACKETS)) {
         MemBufferReset(aft->json_buffer);
-        json_t *packetjs = CreateJSONHeader((Packet *)p, 0, "packet");
+        SCJson *packetjs = CreateJSONHeader((Packet *)p, 0, "packet");
         if (unlikely(packetjs != NULL)) {
             AlertJsonPacket(p, packetjs);
             OutputJSONBuffer(packetjs, aft->file_ctx, &aft->json_buffer);
-            json_decref(packetjs);
+            SCJsonFree(packetjs);
         }
     }
-#endif
+
     return TM_ECODE_OK;
 }
 
