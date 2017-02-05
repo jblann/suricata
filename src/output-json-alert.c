@@ -107,24 +107,22 @@ static int AlertJsonDumpStreamSegmentCallback(const Packet *p, void *data, uint8
     return 1;
 }
 
-#if 0
-static void AlertJsonTls(const Flow *f, json_t *js)
+static void AlertJsonTls(const Flow *f, SCJson *js)
 {
+#if 0
     SSLState *ssl_state = (SSLState *)FlowGetAppState(f);
     if (ssl_state) {
-        json_t *tjs = json_object();
-        if (unlikely(tjs == NULL))
-            return;
-
+        SCJsonSetObject(js, "tls");
+#if 0
         JsonTlsLogJSONBasic(tjs, ssl_state);
         JsonTlsLogJSONExtended(tjs, ssl_state);
-
-        json_object_set_new(js, "tls", tjs);
+#endif
+        SCJsonCloseObject(js);
     }
+#endif
 
     return;
 }
-#endif
 
 #if 0
 static void AlertJsonSsh(const Flow *f, json_t *js)
@@ -144,6 +142,7 @@ static void AlertJsonSsh(const Flow *f, json_t *js)
 }
 #endif
 
+#if 0
 static void AlertJsonDnp3(const Flow *f, json_t *js)
 {
     DNP3State *dnp3_state = (DNP3State *)FlowGetAppState(f);
@@ -173,7 +172,9 @@ static void AlertJsonDnp3(const Flow *f, json_t *js)
 
     return;
 }
+#endif
 
+#if 0
 void AlertJsonHeader(const Packet *p, const PacketAlert *pa, json_t *js)
 {
     char *action = "allowed";
@@ -218,7 +219,9 @@ void AlertJsonHeader(const Packet *p, const PacketAlert *pa, json_t *js)
     /* alert */
     json_object_set_new(js, "alert", ajs);
 }
+#endif
 
+#if 0
 static void AlertJsonPacket(const Packet *p, json_t *js)
 {
     unsigned long len = GET_PKT_LEN(p) * 2;
@@ -235,9 +238,11 @@ static void AlertJsonPacket(const Packet *p, json_t *js)
     json_object_set_new(packetinfo_js, "linktype", json_integer(p->datalink));
     json_object_set_new(js, "packet_info", packetinfo_js);
 }
+#endif
 
 static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
 {
+#if 0
     MemBuffer *payload = aft->payload_buffer;
     AlertJsonOutputCtx *json_output_ctx = aft->json_output_ctx;
     json_t *hjs = NULL;
@@ -449,7 +454,7 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
             json_decref(packetjs);
         }
     }
-
+#endif
     return TM_ECODE_OK;
 }
 
@@ -457,7 +462,6 @@ static int AlertJsonDecoderEvent(ThreadVars *tv, JsonAlertLogThread *aft, const 
 {
     int i;
     char timebuf[64];
-    json_t *js;
 
     if (p->alerts.cnt == 0)
         return TM_ECODE_OK;
@@ -482,18 +486,16 @@ static int AlertJsonDecoderEvent(ThreadVars *tv, JsonAlertLogThread *aft, const 
         char buf[(32 * 3) + 1];
         PrintRawLineHexBuf(buf, sizeof(buf), GET_PKT_DATA(p), GET_PKT_LEN(p) < 32 ? GET_PKT_LEN(p) : 32);
 
-        js = json_object();
+        SCJson *js = SCJsonNew();
         if (js == NULL)
             return TM_ECODE_OK;
 
-        json_t *ajs = json_object();
-        if (ajs == NULL) {
-            json_decref(js);
-            return TM_ECODE_OK;
-        }
-
         /* time & tx */
-        json_object_set_new(js, "timestamp", json_string(timebuf));
+        SCJsonSetString(js, "timestamp", timebuf);
+
+        SCJsonSetString(js, "event_type", "alert");
+
+        SCJsonSetObject(js, "alert");
 
         /* tuple */
         //json_object_set_new(js, "srcip", json_string(srcip));
@@ -502,24 +504,25 @@ static int AlertJsonDecoderEvent(ThreadVars *tv, JsonAlertLogThread *aft, const 
         //json_object_set_new(js, "dp", json_integer(p->dp));
         //json_object_set_new(js, "proto", json_integer(proto));
 
-        json_object_set_new(ajs, "action", json_string(action));
-        json_object_set_new(ajs, "gid", json_integer(pa->s->gid));
-        json_object_set_new(ajs, "signature_id", json_integer(pa->s->id));
-        json_object_set_new(ajs, "rev", json_integer(pa->s->rev));
-        json_object_set_new(ajs, "signature",
-                            json_string((pa->s->msg) ? pa->s->msg : ""));
-        json_object_set_new(ajs, "category",
-                            json_string((pa->s->class_msg) ? pa->s->class_msg : ""));
-        json_object_set_new(ajs, "severity", json_integer(pa->s->prio));
+        SCJsonSetString(js, "action", action);
+        SCJsonSetInt(js, "gid", pa->s->gid);
+        SCJsonSetInt(js, "signature_id", pa->s->id);
+        SCJsonSetInt(js, "rev", pa->s->rev);
+        SCJsonSetString(js, "signature", (pa->s->msg) ? pa->s->msg : "");
+        SCJsonSetString(js, "category",
+            (pa->s->class_msg) ? pa->s->class_msg : "");
+        SCJsonSetInt(js, "severity", pa->s->prio);
 
         if (p->tenant_id > 0)
-            json_object_set_new(ajs, "tenant_id", json_integer(p->tenant_id));
+            SCJsonSetInt(js, "tenant_id", p->tenant_id);
 
-        /* alert */
-        json_object_set_new(js, "alert", ajs);
+        /* Close alert. */
+        SCJsonCloseObject(js);
+
+        /* Close JSON. */
+        SCJsonCloseObject(js);
+
         OutputJSONBuffer(js, aft->file_ctx, &aft->json_buffer);
-        json_object_clear(js);
-        json_decref(js);
     }
 
     return TM_ECODE_OK;
