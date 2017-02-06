@@ -5,7 +5,7 @@
 #include "util-json.h"
 #include "util-unittest.h"
 
-#define INITIAL_SIZE 4096
+#define INITIAL_SIZE 12000
 
 #define STATES 256
 
@@ -131,7 +131,6 @@ static bool SCJsonCheckSize(SCJson *js, size_t n)
 
 SCJson *SCJsonNew(void)
 {
-    printf("SCJsonNew()\n");
     SCJson *js = SCCalloc(1, sizeof(*js));
     if (js != NULL) {
         js->buf = SCCalloc(1, INITIAL_SIZE);
