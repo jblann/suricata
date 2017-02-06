@@ -253,20 +253,20 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
         /* alert */
         AlertJsonHeader(p, pa, js);
 
-#if 0 /* ISH */
         if (json_output_ctx->flags & LOG_JSON_HTTP) {
             if (p->flow != NULL) {
                 uint16_t proto = FlowGetAppProtocol(p->flow);
-
                 /* http alert */
                 if (proto == ALPROTO_HTTP) {
-                    hjs = JsonHttpAddMetadata(p->flow, pa->tx_id);
-                    if (hjs)
-                        json_object_set_new(js, "http", hjs);
+                    SCJsonMark(js);
+                    SCJsonSetObject(js, "http");
+                    if (JsonHttpAddMetadata(js, p->flow, pa->tx_id))
+                        SCJsonCloseObject(js);
+                    else
+                        SCJsonRewind(js);
                 }
             }
         }
-#endif
 
 #if 0 /* ISH */
         if (json_output_ctx->flags & LOG_JSON_TLS) {
