@@ -21,13 +21,19 @@ enum SCJsonState {
     CLOSED,
 };
 
-typedef struct SCJson_ {
-    char *buf;
-    size_t size;
+struct Mark {
+    size_t offset;
     int state[STATES];
     int state_id;
-    bool growable;
-    size_t len;
+};
+
+typedef struct SCJson_ {
+    char        *buf;
+    size_t       size;
+    int          state[STATES];
+    int          state_id;
+    bool         growable;
+    struct Mark  mark;
 } SCJson;
 
 static uint8_t state(SCJson *js)
@@ -110,7 +116,7 @@ static inline size_t encode_string(SCJson *js, size_t offset, const char *val)
  */
 static bool SCJsonCheckSize(SCJson *js, size_t n)
 {
-    size_t required = js->len + n + 1;
+    size_t required = strlen(js->buf) + n + 1;
 
     if (required > js->size) {
         if (!js->growable) {
@@ -118,7 +124,6 @@ static bool SCJsonCheckSize(SCJson *js, size_t n)
         }
         size_t len = required * 2;
         char *buf = SCRealloc(js->buf, len);
-        printf("reallocating to %d\n", len);
         if (buf != NULL) {
             js->buf = buf;
             js->size = len;
@@ -189,17 +194,11 @@ void SCJsonReset(SCJson *js)
     js->state_id = 0;
     js->state[0] = NEW;
     js->buf[0] = '\0';
-    js->len = 0;
 }
 
 const char *SCJsonGetBuf(SCJson *js)
 { 
     return js->buf;
-}
-
-size_t SCJsonGetLen(SCJson *js)
-{
-    return js->len;
 }
 
 /**
@@ -212,7 +211,6 @@ bool SCJsonOpenObject(SCJson *js)
         return false;
     }
     strncat(js->buf, "{", 1);
-    js->len++;
     state_set(js, CLOSED);
     state_push(js, OBJECT_FIRST);
     return true;
@@ -235,7 +233,6 @@ bool SCJsonCloseObject(SCJson *js)
             return false;
     }
     strncat(js->buf, "}", 1);
-    js->len++;
     state_pop(js);
     return true;
 }
@@ -258,9 +255,8 @@ bool SCJsonSetObject(SCJson *js, const char *key)
         return false;
     }
 
-    size_t plen = snprintf(scratch, len, "\"%s\":{", key);
+    snprintf(scratch, len, "\"%s\":{", key);
     strncat(js->buf, scratch, len);
-    js->len += plen;
     state_set(js, OBJECT_NTH);
     state_push(js, OBJECT_FIRST);
 
@@ -285,7 +281,7 @@ bool SCJsonSetList(SCJson *js, const char *key)
         return false;
     }
 
-    js->len += snprintf(scratch, len, "\"%s\":[", key);
+    snprintf(scratch, len, "\"%s\":[", key);
     strncat(js->buf, scratch, len);
     state_push(js, LIST_FIRST);
 
@@ -309,7 +305,6 @@ bool SCJsonCloseList(SCJson *js)
             return false;
     }
     strncat(js->buf, "]", 1);
-    js->len++;
     state_pop(js);
     return true;
 }
@@ -338,12 +333,11 @@ bool SCJsonSetString(SCJson *js, const char *key, const char *val)
 
     if (state(js) == OBJECT_NTH) {
         strncat(js->buf, ",", 1);
-        js->len++;
     }
 
-    js->len += snprintf(scratch, len, "\"%s\":", key);
+    snprintf(scratch, len, "\"%s\":", key);
     strncat(js->buf, scratch, len);
-    js->len += encode_string(js, js->len, val);
+    encode_string(js, strlen(js->buf), val);
 
     state_set(js, OBJECT_NTH);
 
@@ -361,10 +355,9 @@ bool SCJsonSetInt(SCJson *js, const char *key, const intmax_t val)
 
     if (state(js) == OBJECT_NTH) {
         strncat(js->buf, ",", 1);
-        js->len++;
     }
 
-    js->len += snprintf(scratch, len, "\"%s\":%"PRIiMAX, key, val);
+    snprintf(scratch, len, "\"%s\":%"PRIiMAX, key, val);
     strncat(js->buf, scratch, len);
 
     state_set(js, OBJECT_NTH);
@@ -384,13 +377,12 @@ bool SCJsonSetBool(SCJson *js, const char *key, const bool val)
 
     if (state(js) == OBJECT_NTH) {
         strncat(js->buf, ",", 1);
-        js->len++;
     }
 
     if (val) {
-        js->len += snprintf(scratch, len, "\"%s\":true", key);
+        snprintf(scratch, len, "\"%s\":true", key);
     } else {
-        js->len += snprintf(scratch, len, "\"%s\":false", key);
+        snprintf(scratch, len, "\"%s\":false", key);
     }
 
     strncat(js->buf, scratch, len);
@@ -415,7 +407,7 @@ bool SCJsonAppendString(SCJson *js, const char *val)
             return false;
     }
 
-    js->len += encode_string(js, js->len, val);
+    encode_string(js, strlen(js->buf), val);
     state_set(js, LIST_NTH);
 
     return true;
@@ -433,19 +425,46 @@ bool SCJsonAppendInt(SCJson *js, const intmax_t val)
     switch (state(js)) {
         case LIST_NTH:
             strncat(js->buf, ",", 1);
-            js->len++;
         case LIST_FIRST:
             break;
         default:
             return false;
     }
 
-    js->len += snprintf(scratch, len, "%"PRIiMAX, val);
+    snprintf(scratch, len, "%"PRIiMAX, val);
     strncat(js->buf, scratch, len);
 
     state_set(js, LIST_NTH);
 
     return true;
+}
+
+/**
+ * \brief Mark the current state of the SCJson object so it can be
+ *     rewound to this state after some writes.
+ *
+ * Only one mark is allowed, meaning the buffer to can only be rewound
+ * to the last call to SCJsonMark.
+ *
+ * Useful when sequential lines of JSON start with the same header,
+ * the object can be marked and the end of the common data, written
+ * to, then rewound for the next line.
+ */
+void SCJsonMark(SCJson *js)
+{
+    memcpy(&js->mark.state, &js->state, sizeof(js->state));
+    js->mark.state_id = js->state_id;
+    js->mark.offset = strlen(js->buf);
+}
+
+/**
+ * \brief Rewind to the state of the last call to SCJsonMark.
+ */
+void SCJsonRewind(SCJson *js)
+{
+    memcpy(&js->state, &js->mark.state, sizeof(js->state));
+    js->state_id = js->mark.state_id;
+    js->buf[js->mark.offset] = '\0';
 }
 
 #ifdef UNITTESTS
@@ -607,6 +626,32 @@ static int UtilJsonTestWrapped(void)
     PASS;
 }
 
+static int UtilJsonTestMark(void)
+{
+    SCJson *js = SCJsonNew();
+
+    SCJsonOpenObject(js);
+    SCJsonSetString(js, "one", "one");
+    SCJsonMark(js);
+    SCJsonSetList(js, "list");
+    SCJsonAppendInt(js, 1);
+    char *expected = "{\"one\":\"one\",\"list\":[1";
+    FAIL_IF(strcmp(js->buf, expected) != 0);
+
+    SCJsonRewind(js);
+    expected = "{\"one\":\"one\"";
+    FAIL_IF(strlen(expected) != strlen(js->buf) ||
+        strcmp(js->buf, expected) != 0);
+
+    SCJsonSetString(js, "two", "two");
+    expected = "{\"one\":\"one\",\"two\":\"two\"";
+    FAIL_IF(strlen(expected) != strlen(js->buf) ||
+        strcmp(js->buf, expected) != 0);
+
+    SCJsonFree(js);
+    PASS;
+}
+
 #endif /* UNITTESTS */
 
 void UtilJsonRegisterTests(void)
@@ -615,5 +660,6 @@ void UtilJsonRegisterTests(void)
     UtRegisterTest("UtilJsonTest01", UtilJsonTest01);
     UtRegisterTest("UtilJsonTestGrow", UtilJsonTestGrow);
     UtRegisterTest("UtilJsonTestWrapped", UtilJsonTestWrapped);
+    UtRegisterTest("UtilJsonTestMark", UtilJsonTestMark);
 #endif
 }

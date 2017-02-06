@@ -20,7 +20,9 @@ bool SCJsonAppendString(SCJson *js, const char *val);
 bool SCJsonAppendInt(SCJson *js, const intmax_t val);
 bool SCJsonCloseList(SCJson *js);
 
+void SCJsonMark(SCJson *js);
+void SCJsonRewind(SCJson *js);
+
 const char *SCJsonGetBuf(SCJson *js);
-size_t SCJsonGetLen(SCJson *js);
 
 void UtilJsonRegisterTests(void);

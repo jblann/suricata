@@ -273,7 +273,6 @@ int OutputJSONMemBufferCallback(const char *str, size_t size, void *data)
 
 int OutputJSONBuffer(SCJson *js, LogFileCtx *file_ctx, MemBuffer **buffer)
 {
-#if 1
     if (file_ctx->sensor_name) {
         SCJsonSetString(js, "host", file_ctx->sensor_name);
     }
@@ -282,26 +281,9 @@ int OutputJSONBuffer(SCJson *js, LogFileCtx *file_ctx, MemBuffer **buffer)
         MemBufferWriteRaw((*buffer), file_ctx->prefix, file_ctx->prefix_len);
     }
 
-    OutputJSONMemBufferWrapper wrapper = {
-        .buffer = buffer,
-        .expand_by = OUTPUT_BUFFER_SIZE
-    };
-
-#if 0
-    int r = json_dump_callback(js, OutputJSONMemBufferCallback, &wrapper,
-            JSON_PRESERVE_ORDER|JSON_COMPACT|JSON_ENSURE_ASCII|
-            JSON_ESCAPE_SLASH);
-    if (r != 0)
-        return TM_ECODE_OK;
-#endif
-
-#if 1
-    OutputJSONMemBufferCallback(SCJsonGetBuf(js), SCJsonGetLen(js),
-        &wrapper);
-#endif
-
+    MemBufferWriteRaw((*buffer), SCJsonGetBuf(js), strlen(SCJsonGetBuf(js)));
     LogFileWrite(file_ctx, *buffer);
-#endif
+
     return 0;
 }
 

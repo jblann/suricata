@@ -254,6 +254,7 @@ typedef struct LogDnsLogThread_ {
     uint32_t dns_cnt;
 
     MemBuffer *buffer;
+    SCJson *js;
 } LogDnsLogThread;
 
 static int DNSRRTypeEnabled(uint16_t type, uint64_t flags)
@@ -428,6 +429,7 @@ static void LogQuery(LogDnsLogThread *aft, SCJson *js, DNSTransaction *tx,
 
     /* Close JSON. */
     SCJsonCloseObject(js);
+
     OutputJSONBuffer(js, aft->dnslog_ctx->file_ctx, &aft->buffer);
 }
 
@@ -536,6 +538,7 @@ static void OutputAnswer(LogDnsLogThread *aft, SCJson *js,
 
     /* reset */
     MemBufferReset(aft->buffer);
+
     OutputJSONBuffer(js, aft->dnslog_ctx->file_ctx, &aft->buffer);
 
     return;
@@ -580,6 +583,7 @@ static void OutputFailure(LogDnsLogThread *aft, SCJson *js,
 
     /* reset */
     MemBufferReset(aft->buffer);
+
     OutputJSONBuffer(js, aft->dnslog_ctx->file_ctx, &aft->buffer);
 
     return;
@@ -597,24 +601,24 @@ static void LogAnswers(LogDnsLogThread *aft, SCJson *js, DNSTransaction *tx, uin
          * are likely to lead to FORMERR, so log this. */
         DNSQueryEntry *query = NULL;
         TAILQ_FOREACH(query, &tx->query_list, next) {
-            SCJson *copy = SCJsonCopy(js);
-            OutputFailure(aft, copy, tx, query);
-            SCJsonFree(copy);
+            SCJsonMark(js);
+            OutputFailure(aft, js, tx, query);
+            SCJsonRewind(js);
         }
     }
 
     DNSAnswerEntry *entry = NULL;
     TAILQ_FOREACH(entry, &tx->answer_list, next) {
-        SCJson *copy = SCJsonCopy(js);
-        OutputAnswer(aft, copy, tx, entry);
-        SCJsonFree(copy);
+        SCJsonMark(js);
+        OutputAnswer(aft, js, tx, entry);
+        SCJsonRewind(js);
     }
 
     entry = NULL;
     TAILQ_FOREACH(entry, &tx->authority_list, next) {
-        SCJson *copy = SCJsonCopy(js);
-        OutputAnswer(aft, copy, tx, entry);
-        SCJsonFree(copy);
+        SCJsonMark(js);
+        OutputAnswer(aft, js, tx, entry);
+        SCJsonRewind(js);
     }
 
 }
@@ -627,16 +631,13 @@ static int JsonDnsLoggerToServer(ThreadVars *tv, void *thread_data,
     LogDnsLogThread *td = (LogDnsLogThread *)thread_data;
     LogDnsFileCtx *dnslog_ctx = td->dnslog_ctx;
     DNSTransaction *tx = txptr;
-    SCJson *js = SCJsonNew();
 
     if (likely(dnslog_ctx->flags & LOG_QUERIES) != 0) {
         DNSQueryEntry *query = NULL;
         TAILQ_FOREACH(query, &tx->query_list, next) {
-            js = CreateJSONHeader(js, (Packet *)p, 1, "dns");
-            if (unlikely(js == NULL))
-                return TM_ECODE_OK;
-            LogQuery(td, js, tx, tx_id, query);
-            SCJsonReset(js);
+            CreateJSONHeader(td->js, (Packet *)p, 1, "dns");
+            LogQuery(td, td->js, tx, tx_id, query);
+            SCJsonReset(td->js);
         }
     }
 
@@ -651,14 +652,11 @@ static int JsonDnsLoggerToClient(ThreadVars *tv, void *thread_data,
     LogDnsLogThread *td = (LogDnsLogThread *)thread_data;
     LogDnsFileCtx *dnslog_ctx = td->dnslog_ctx;
     DNSTransaction *tx = txptr;
-    SCJson *js = SCJsonNew();
 
     if (likely(dnslog_ctx->flags & LOG_ANSWERS) != 0) {
-        js = CreateJSONHeader(js, (Packet *)p, 0, "dns");
-        if (unlikely(js == NULL))
-            return TM_ECODE_OK;
-        LogAnswers(td, js, tx, tx_id);
-        SCJsonReset(js);
+        CreateJSONHeader(td->js, (Packet *)p, 0, "dns");
+        LogAnswers(td, td->js, tx, tx_id);
+        SCJsonReset(td->js);
     }
 
     SCReturnInt(TM_ECODE_OK);
@@ -685,6 +683,13 @@ static TmEcode LogDnsLogThreadInit(ThreadVars *t, void *initdata, void **data)
         return TM_ECODE_FAILED;
     }
 
+    aft->js = SCJsonNew();
+    if (aft->buffer == NULL) {
+        MemBufferFree(aft->buffer);
+        SCFree(aft);
+        return TM_ECODE_FAILED;
+    }
+
     /* Use the Ouptut Context (file pointer and mutex) */
     aft->dnslog_ctx= ((OutputCtx *)initdata)->data;
 
@@ -702,6 +707,8 @@ static TmEcode LogDnsLogThreadDeinit(ThreadVars *t, void *data)
     MemBufferFree(aft->buffer);
     /* clear memory */
     memset(aft, 0, sizeof(LogDnsLogThread));
+
+    SCJsonFree(aft->js);
 
     SCFree(aft);
     return TM_ECODE_OK;
