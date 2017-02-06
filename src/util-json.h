@@ -5,7 +5,9 @@
 typedef struct SCJson_ SCJson;
 
 SCJson *SCJsonNew(void);
+SCJson *SCJsonCopy(SCJson *js);
 SCJson *SCJsonWrap(char *buf, size_t size);
+void SCJsonReset(SCJson *js);
 void SCJsonFree(SCJson *js);
 bool SCJsonOpenObject(SCJson *js);
 bool SCJsonCloseObject(SCJson *js);
@@ -19,5 +21,6 @@ bool SCJsonAppendInt(SCJson *js, const intmax_t val);
 bool SCJsonCloseList(SCJson *js);
 
 const char *SCJsonGetBuf(SCJson *js);
+size_t SCJsonGetLen(SCJson *js);
 
 void UtilJsonRegisterTests(void);

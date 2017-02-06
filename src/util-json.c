@@ -9,6 +9,9 @@
 
 #define STATES 256
 
+#undef BUG_ON
+#define BUG_ON(x)
+
 enum SCJsonState {
     NEW = 0,
     OBJECT_FIRST,
@@ -24,6 +27,7 @@ typedef struct SCJson_ {
     int state[STATES];
     int state_id;
     bool growable;
+    size_t len;
 } SCJson;
 
 static uint8_t state(SCJson *js)
@@ -53,8 +57,9 @@ static void state_pop(SCJson *js)
  * that the buffer has already been checked to make sure the encoded
  * string fits.
  */
-static inline void encode_string(SCJson *js, size_t offset, const char *val)
+static inline size_t encode_string(SCJson *js, size_t offset, const char *val)
 {
+    size_t ioffset = offset;
     BUG_ON(js->size - offset < (strlen(val) * 2));
     js->buf[offset++] = '"';
     bool done = false;
@@ -94,6 +99,7 @@ static inline void encode_string(SCJson *js, size_t offset, const char *val)
         }
         js->buf[offset++] = val[i];
     }
+    return offset - ioffset;
 }
 
 /**
@@ -104,7 +110,7 @@ static inline void encode_string(SCJson *js, size_t offset, const char *val)
  */
 static bool SCJsonCheckSize(SCJson *js, size_t n)
 {
-    size_t required = strlen(js->buf) + n + 1;
+    size_t required = js->len + n + 1;
 
     if (required > js->size) {
         if (!js->growable) {
@@ -112,6 +118,7 @@ static bool SCJsonCheckSize(SCJson *js, size_t n)
         }
         size_t len = required * 2;
         char *buf = SCRealloc(js->buf, len);
+        printf("reallocating to %d\n", len);
         if (buf != NULL) {
             js->buf = buf;
             js->size = len;
@@ -124,6 +131,7 @@ static bool SCJsonCheckSize(SCJson *js, size_t n)
 
 SCJson *SCJsonNew(void)
 {
+    printf("SCJsonNew()\n");
     SCJson *js = SCCalloc(1, sizeof(*js));
     if (js != NULL) {
         js->buf = SCCalloc(1, INITIAL_SIZE);
@@ -136,6 +144,23 @@ SCJson *SCJsonNew(void)
     }
 
     return js;
+}
+
+SCJson *SCJsonCopy(SCJson *js)
+{
+    SCJson *copy = SCCalloc(1, sizeof(*js));
+    if (copy != NULL) {
+        memcpy(copy, js, sizeof(*copy));
+        copy->buf = SCCalloc(1, js->size);
+        if (copy->buf == NULL) {
+            SCFree(copy);
+            return NULL;
+        }
+        strcpy(copy->buf, js->buf);
+        //memcpy(copy->buf, js->buf, js->size);
+    }
+
+    return copy;
 }
 
 SCJson *SCJsonWrap(char *buf, size_t size)
@@ -160,9 +185,22 @@ void SCJsonFree(SCJson *js)
     SCFree(js);
 }
 
-const char *SCJsonGetBuf(SCJson *js)
+void SCJsonReset(SCJson *js)
 {
+    js->state_id = 0;
+    js->state[0] = NEW;
+    js->buf[0] = '\0';
+    js->len = 0;
+}
+
+const char *SCJsonGetBuf(SCJson *js)
+{ 
     return js->buf;
+}
+
+size_t SCJsonGetLen(SCJson *js)
+{
+    return js->len;
 }
 
 /**
@@ -175,6 +213,7 @@ bool SCJsonOpenObject(SCJson *js)
         return false;
     }
     strncat(js->buf, "{", 1);
+    js->len++;
     state_set(js, CLOSED);
     state_push(js, OBJECT_FIRST);
     return true;
@@ -197,6 +236,7 @@ bool SCJsonCloseObject(SCJson *js)
             return false;
     }
     strncat(js->buf, "}", 1);
+    js->len++;
     state_pop(js);
     return true;
 }
@@ -219,8 +259,9 @@ bool SCJsonSetObject(SCJson *js, const char *key)
         return false;
     }
 
-    snprintf(scratch, len, "\"%s\":{", key);
+    size_t plen = snprintf(scratch, len, "\"%s\":{", key);
     strncat(js->buf, scratch, len);
+    js->len += plen;
     state_set(js, OBJECT_NTH);
     state_push(js, OBJECT_FIRST);
 
@@ -245,7 +286,7 @@ bool SCJsonSetList(SCJson *js, const char *key)
         return false;
     }
 
-    snprintf(scratch, len, "\"%s\":[", key);
+    js->len += snprintf(scratch, len, "\"%s\":[", key);
     strncat(js->buf, scratch, len);
     state_push(js, LIST_FIRST);
 
@@ -269,6 +310,7 @@ bool SCJsonCloseList(SCJson *js)
             return false;
     }
     strncat(js->buf, "]", 1);
+    js->len++;
     state_pop(js);
     return true;
 }
@@ -288,21 +330,21 @@ bool SCJsonSetString(SCJson *js, const char *key, const char *val)
      * - strlen(val) * 2
      * - quote
      */
-    size_t len = 5 + strlen(key) + (strlen(val) * 2);
+    size_t len = 5 + strlen(key);
     char scratch[len];
 
-    if (!SCJsonCheckSize(js, len)) {
+    if (!SCJsonCheckSize(js, len + (strlen(val) * 2))) {
         return false;
     }
 
     if (state(js) == OBJECT_NTH) {
         strncat(js->buf, ",", 1);
+        js->len++;
     }
 
-    snprintf(scratch, len, "\"%s\":", key);
+    js->len += snprintf(scratch, len, "\"%s\":", key);
     strncat(js->buf, scratch, len);
-    size_t j = strlen(js->buf);
-    encode_string(js, j, val);
+    js->len += encode_string(js, js->len, val);
 
     state_set(js, OBJECT_NTH);
 
@@ -320,9 +362,10 @@ bool SCJsonSetInt(SCJson *js, const char *key, const intmax_t val)
 
     if (state(js) == OBJECT_NTH) {
         strncat(js->buf, ",", 1);
+        js->len++;
     }
 
-    snprintf(scratch, len, "\"%s\":%"PRIiMAX, key, val);
+    js->len += snprintf(scratch, len, "\"%s\":%"PRIiMAX, key, val);
     strncat(js->buf, scratch, len);
 
     state_set(js, OBJECT_NTH);
@@ -342,12 +385,13 @@ bool SCJsonSetBool(SCJson *js, const char *key, const bool val)
 
     if (state(js) == OBJECT_NTH) {
         strncat(js->buf, ",", 1);
+        js->len++;
     }
 
     if (val) {
-        snprintf(scratch, len, "\"%s\":true", key);
+        js->len += snprintf(scratch, len, "\"%s\":true", key);
     } else {
-        snprintf(scratch, len, "\"%s\":false", key);
+        js->len += snprintf(scratch, len, "\"%s\":false", key);
     }
 
     strncat(js->buf, scratch, len);
@@ -372,7 +416,7 @@ bool SCJsonAppendString(SCJson *js, const char *val)
             return false;
     }
 
-    encode_string(js, strlen(js->buf), val);
+    js->len += encode_string(js, js->len, val);
     state_set(js, LIST_NTH);
 
     return true;
@@ -390,13 +434,14 @@ bool SCJsonAppendInt(SCJson *js, const intmax_t val)
     switch (state(js)) {
         case LIST_NTH:
             strncat(js->buf, ",", 1);
+            js->len++;
         case LIST_FIRST:
             break;
         default:
             return false;
     }
 
-    snprintf(scratch, len, "%"PRIiMAX, val);
+    js->len += snprintf(scratch, len, "%"PRIiMAX, val);
     strncat(js->buf, scratch, len);
 
     state_set(js, LIST_NTH);

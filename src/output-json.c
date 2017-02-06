@@ -111,17 +111,14 @@ void CreateJSONFlowId(SCJson *js, const Flow *f)
     SCJsonSetInt(js, "flow_id", flow_id);
 }
 
-SCJson *CreateJSONHeader(const Packet *p, int direction_sensitive,
+SCJson *CreateJSONHeader(SCJson *js, const Packet *p, int direction_sensitive,
                          const char *event_type)
 {
     char timebuf[64];
     char srcip[46], dstip[46];
     Port sp, dp;
 
-    SCJson *js = SCJsonNew();
-    if (unlikely(js == NULL)) {
-        return NULL;
-    }
+    SCJsonReset(js);
     SCJsonOpenObject(js);
 
     CreateIsoTimeString(&p->ts, timebuf, sizeof(timebuf));
@@ -249,12 +246,11 @@ SCJson *CreateJSONHeader(const Packet *p, int direction_sensitive,
     return js;
 }
 
-SCJson *CreateJSONHeaderWithTxId(const Packet *p, int direction_sensitive,
+SCJson *CreateJSONHeaderWithTxId(SCJson *js, const Packet *p,
+                                 int direction_sensitive,
                                  const char *event_type, uint64_t tx_id)
 {
-    SCJson *js = CreateJSONHeader(p, direction_sensitive, event_type);
-    if (unlikely(js == NULL))
-        return NULL;
+    CreateJSONHeader(js, p, direction_sensitive, event_type);
 
     /* tx id for correlation with other events */
     SCJsonSetInt(js, "tx_id", tx_id);
@@ -277,6 +273,7 @@ int OutputJSONMemBufferCallback(const char *str, size_t size, void *data)
 
 int OutputJSONBuffer(SCJson *js, LogFileCtx *file_ctx, MemBuffer **buffer)
 {
+#if 1
     if (file_ctx->sensor_name) {
         SCJsonSetString(js, "host", file_ctx->sensor_name);
     }
@@ -298,10 +295,13 @@ int OutputJSONBuffer(SCJson *js, LogFileCtx *file_ctx, MemBuffer **buffer)
         return TM_ECODE_OK;
 #endif
 
-    OutputJSONMemBufferCallback(SCJsonGetBuf(js), strlen(SCJsonGetBuf(js)),
+#if 1
+    OutputJSONMemBufferCallback(SCJsonGetBuf(js), SCJsonGetLen(js),
         &wrapper);
+#endif
 
     LogFileWrite(file_ctx, *buffer);
+#endif
     return 0;
 }
 

@@ -423,7 +423,10 @@ static void LogQuery(LogDnsLogThread *aft, SCJson *js, DNSTransaction *tx,
     /* tx id (tx counter) */
     SCJsonSetInt(js, "tx_id", tx_id);
 
-    /* dns */
+    /* Close dns. */
+    SCJsonCloseObject(js);
+
+    /* Close JSON. */
     SCJsonCloseObject(js);
     OutputJSONBuffer(js, aft->dnslog_ctx->file_ctx, &aft->buffer);
 }
@@ -525,9 +528,14 @@ static void OutputAnswer(LogDnsLogThread *aft, SCJson *js,
         }
     }
 
+    /* Close DNS. */
+    SCJsonCloseObject(js);
+
+    /* Close JSON. */
+    SCJsonCloseObject(js);
+
     /* reset */
     MemBufferReset(aft->buffer);
-    SCJsonCloseObject(js);
     OutputJSONBuffer(js, aft->dnslog_ctx->file_ctx, &aft->buffer);
 
     return;
@@ -564,9 +572,14 @@ static void OutputFailure(LogDnsLogThread *aft, SCJson *js,
         SCFree(c);
     }
 
+    /* Close DNS. */
+    SCJsonCloseObject(js);
+
+    /* Close JSON. */
+    SCJsonCloseObject(js);
+
     /* reset */
     MemBufferReset(aft->buffer);
-    SCJsonCloseObject(js);
     OutputJSONBuffer(js, aft->dnslog_ctx->file_ctx, &aft->buffer);
 
     return;
@@ -584,18 +597,24 @@ static void LogAnswers(LogDnsLogThread *aft, SCJson *js, DNSTransaction *tx, uin
          * are likely to lead to FORMERR, so log this. */
         DNSQueryEntry *query = NULL;
         TAILQ_FOREACH(query, &tx->query_list, next) {
-            OutputFailure(aft, js, tx, query);
+            SCJson *copy = SCJsonCopy(js);
+            OutputFailure(aft, copy, tx, query);
+            SCJsonFree(copy);
         }
     }
 
     DNSAnswerEntry *entry = NULL;
     TAILQ_FOREACH(entry, &tx->answer_list, next) {
-        OutputAnswer(aft, js, tx, entry);
+        SCJson *copy = SCJsonCopy(js);
+        OutputAnswer(aft, copy, tx, entry);
+        SCJsonFree(copy);
     }
 
     entry = NULL;
     TAILQ_FOREACH(entry, &tx->authority_list, next) {
-        OutputAnswer(aft, js, tx, entry);
+        SCJson *copy = SCJsonCopy(js);
+        OutputAnswer(aft, copy, tx, entry);
+        SCJsonFree(copy);
     }
 
 }
@@ -608,18 +627,16 @@ static int JsonDnsLoggerToServer(ThreadVars *tv, void *thread_data,
     LogDnsLogThread *td = (LogDnsLogThread *)thread_data;
     LogDnsFileCtx *dnslog_ctx = td->dnslog_ctx;
     DNSTransaction *tx = txptr;
-    SCJson *js;
+    SCJson *js = SCJsonNew();
 
     if (likely(dnslog_ctx->flags & LOG_QUERIES) != 0) {
         DNSQueryEntry *query = NULL;
         TAILQ_FOREACH(query, &tx->query_list, next) {
-            js = CreateJSONHeader((Packet *)p, 1, "dns");
+            js = CreateJSONHeader(js, (Packet *)p, 1, "dns");
             if (unlikely(js == NULL))
                 return TM_ECODE_OK;
-
             LogQuery(td, js, tx, tx_id, query);
-
-            SCJsonFree(js);
+            SCJsonReset(js);
         }
     }
 
@@ -634,14 +651,14 @@ static int JsonDnsLoggerToClient(ThreadVars *tv, void *thread_data,
     LogDnsLogThread *td = (LogDnsLogThread *)thread_data;
     LogDnsFileCtx *dnslog_ctx = td->dnslog_ctx;
     DNSTransaction *tx = txptr;
-    SCJson *js;
+    SCJson *js = SCJsonNew();
 
     if (likely(dnslog_ctx->flags & LOG_ANSWERS) != 0) {
-        js = CreateJSONHeader((Packet *)p, 0, "dns");
+        js = CreateJSONHeader(js, (Packet *)p, 0, "dns");
         if (unlikely(js == NULL))
             return TM_ECODE_OK;
-
         LogAnswers(td, js, tx, tx_id);
+        SCJsonReset(js);
     }
 
     SCReturnInt(TM_ECODE_OK);

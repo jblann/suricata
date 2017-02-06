@@ -95,6 +95,7 @@ typedef struct JsonAlertLogThread_ {
     MemBuffer *json_buffer;
     MemBuffer *payload_buffer;
     AlertJsonOutputCtx* json_output_ctx;
+    SCJson *js;
 } JsonAlertLogThread;
 
 /* Callback function to pack payload contents from a stream into a buffer
@@ -243,7 +244,7 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
             continue;
         }
 
-        SCJson *js = CreateJSONHeader((Packet *)p, 0, "alert");
+        SCJson *js = CreateJSONHeader(aft->js, (Packet *)p, 0, "alert");
         if (unlikely(js == NULL))
             return TM_ECODE_OK;
 
@@ -422,18 +423,17 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
         SCJsonCloseObject(js);
 
         OutputJSONBuffer(js, aft->file_ctx, &aft->json_buffer);
-
-        SCJsonFree(js);
     }
 
     if ((p->flags & PKT_HAS_TAG) && (json_output_ctx->flags &
             LOG_JSON_TAGGED_PACKETS)) {
         MemBufferReset(aft->json_buffer);
-        SCJson *packetjs = CreateJSONHeader((Packet *)p, 0, "packet");
+        SCJsonReset(aft->js);
+        SCJson *packetjs = CreateJSONHeader(aft->js, (Packet *)p, 0, "packet");
         if (unlikely(packetjs != NULL)) {
             AlertJsonPacket(p, packetjs);
             OutputJSONBuffer(packetjs, aft->file_ctx, &aft->json_buffer);
-            SCJsonFree(packetjs);
+            SCJsonReset(packetjs);
         }
     }
 
@@ -468,9 +468,8 @@ static int AlertJsonDecoderEvent(ThreadVars *tv, JsonAlertLogThread *aft, const 
         char buf[(32 * 3) + 1];
         PrintRawLineHexBuf(buf, sizeof(buf), GET_PKT_DATA(p), GET_PKT_LEN(p) < 32 ? GET_PKT_LEN(p) : 32);
 
-        SCJson *js = SCJsonNew();
-        if (js == NULL)
-            return TM_ECODE_OK;
+        SCJson *js = aft->js;
+        SCJsonReset(js);
 
         /* time & tx */
         SCJsonSetString(js, "timestamp", timebuf);
@@ -550,6 +549,12 @@ static TmEcode JsonAlertLogThreadInit(ThreadVars *t, void *initdata, void **data
         return TM_ECODE_FAILED;
     }
 
+    aft->js = SCJsonNew();
+    if (aft->json_buffer == NULL) {
+        SCFree(aft);
+        return TM_ECODE_FAILED;
+    }
+
     /** Use the Output Context (file pointer and mutex) */
     AlertJsonOutputCtx *json_output_ctx = ((OutputCtx *)initdata)->data;
     aft->file_ctx = json_output_ctx->file_ctx;
@@ -577,6 +582,8 @@ static TmEcode JsonAlertLogThreadDeinit(ThreadVars *t, void *data)
 
     /* clear memory */
     memset(aft, 0, sizeof(JsonAlertLogThread));
+
+    SCJsonFree(aft->js);
 
     SCFree(aft);
     return TM_ECODE_OK;
