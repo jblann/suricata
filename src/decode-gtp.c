@@ -170,17 +170,11 @@ static int DecodeGTPTestNoFlags(void) {
 
     int data_len;
     uint8_t *data = DecodeGTPDataPacket(raw_gtp_data_packet, &data_len);
-    if (data == NULL) {
-        return 0;
-    }
-    if (data_len != 52) {
-        return 0;
-    }
-    if ((data[0] >> 4) != GTP_PROTO_IPV4) {
-        return 0;
-    }
+    FAIL_IF_NULL(data);
+    FAIL_IF(data_len != 52);
+    FAIL_IF((data[0] >> 4) != GTP_PROTO_IPV4);
 
-    return 1;
+    PASS;
 }
 
 static int DecodeGTPTestWithFlag(void) {
@@ -211,17 +205,11 @@ static int DecodeGTPTestWithFlag(void) {
 
     int data_len;
     uint8_t *data = DecodeGTPDataPacket(raw_gtp_data_packet, &data_len);
-    if (data == NULL) {
-        return 0;
-    }
-    if (data_len != 52) {
-        return 0;
-    }
-    if ((data[0] >> 4) != GTP_PROTO_IPV4) {
-        return 0;
-    }
+    FAIL_IF_NULL(data);
+    FAIL_IF(data_len != 52);
+    FAIL_IF((data[0] >> 4) != GTP_PROTO_IPV4);
 
-    return 1;
+    PASS;
 }
 
 
@@ -229,7 +217,7 @@ static int DecodeGTPTestWithFlag(void) {
 
 void DecodeGTPRegisterUnitTests(void) {
 #ifdef UNITTESTS
-    UtRegisterTest("DecodeGTPTestNoFlags", DecodeGTPTestNoFlags, 1);
-    UtRegisterTest("DecodeGTPTestWithFlag", DecodeGTPTestWithFlag, 1);
+    UtRegisterTest("DecodeGTPTestNoFlags", DecodeGTPTestNoFlags);
+    UtRegisterTest("DecodeGTPTestWithFlag", DecodeGTPTestWithFlag);
 #endif /* UNITTESTS */
 }
