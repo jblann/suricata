@@ -72,6 +72,8 @@ enum PktSrcEnum {
 
 #include "action-globals.h"
 
+#include "decode-esp.h"
+#include "decode-udplite.h"
 #include "decode-erspan.h"
 #include "decode-ethernet.h"
 #include "decode-gre.h"
@@ -486,6 +488,8 @@ typedef struct Packet_
 
     IPV6Hdr *ip6h;
 
+    EspHdr *esph;
+
     /* IPv4 and IPv6 are mutually exclusive */
     union {
         IPV4Vars ip4vars;
@@ -507,6 +511,8 @@ typedef struct Packet_
     TCPHdr *tcph;
 
     UDPHdr *udph;
+
+    UdpliteHdr *udpliteh;
 
     SCTPHdr *sctph;
 
@@ -798,6 +804,7 @@ void CaptureStatsSetup(ThreadVars *tv, CaptureStats *s);
         if ((p)->icmpv6h != NULL) {             \
             CLEAR_ICMPV6_PACKET((p));           \
         }                                       \
+        (p)->esph = NULL;                       \
         (p)->ppph = NULL;                       \
         (p)->pppoesh = NULL;                    \
         (p)->pppoedh = NULL;                    \
@@ -951,6 +958,8 @@ int DecodeVLAN(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint16_t, 
 int DecodeMPLS(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint16_t, PacketQueue *);
 int DecodeERSPAN(ThreadVars *, DecodeThreadVars *, Packet *, uint8_t *, uint16_t, PacketQueue *);
 int DecodeTEMPLATE(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint16_t, PacketQueue *);
+int DecodeESP(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint16_t, PacketQueue *);
+int DecodeUDPLITE(ThreadVars *, DecodeThreadVars *, Packet *, const uint8_t *, uint16_t, PacketQueue *);
 
 #ifdef UNITTESTS
 void DecodeIPV6FragHeader(Packet *p, uint8_t *pkt,

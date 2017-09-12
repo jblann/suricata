@@ -48,7 +48,7 @@
 #include "util-classification-config.h"
 
 #include "output.h"
-#include "alert-fastlog.h"
+#include "alert-udplite.h"
 
 #include "util-privs.h"
 #include "util-print.h"
@@ -57,7 +57,7 @@
 #include "util-logopenfile.h"
 #include "util-time.h"
 
-#define DEFAULT_LOG_FILENAME "udplite.log"
+#define DEFAULT_LOG_FILENAME "fast.log"
 
 #define MODULE_NAME "AlertUdpliteLog"
 
@@ -67,42 +67,42 @@
  * holding multiple alerts. */
 #define MAX_FASTLOG_BUFFER_SIZE (2 * MAX_FASTLOG_ALERT_SIZE)
 
-TmEcode AlertFastLogThreadInit(ThreadVars *, const void *, void **);
-TmEcode AlertFastLogThreadDeinit(ThreadVars *, void *);
-void AlertFastLogRegisterTests(void);
-static void AlertFastLogDeInitCtx(OutputCtx *);
+TmEcode AlertUdpliteLogThreadInit(ThreadVars *, const void *, void **);
+TmEcode AlertUdpliteLogThreadDeinit(ThreadVars *, void *);
+void AlertUdpliteLogRegisterTests(void);
+static void AlertUdpliteLogDeInitCtx(OutputCtx *);
 
-int AlertFastLogCondition(ThreadVars *tv, const Packet *p);
-int AlertFastLogger(ThreadVars *tv, void *data, const Packet *p);
+int AlertUdpliteLogCondition(ThreadVars *tv, const Packet *p);
+int AlertUdpliteLogger(ThreadVars *tv, void *data, const Packet *p);
 
-void AlertFastLogRegister(void)
+void AlertUdpliteLogRegister(void)
 {
-    OutputRegisterPacketModule(LOGGER_ALERT_UDPLITE, MODULE_NAME, "udplite",
-        AlertFastLogInitCtx, AlertFastLogger, AlertFastLogCondition,
-        AlertFastLogThreadInit, AlertFastLogThreadDeinit, NULL);
-    AlertFastLogRegisterTests();
+    OutputRegisterPacketModule(LOGGER_ALERT_FAST, MODULE_NAME, "fast",
+        AlertUdpliteLogInitCtx, AlertUdpliteLogger, AlertUdpliteLogCondition,
+        AlertUdpliteLogThreadInit, AlertUdpliteLogThreadDeinit, NULL);
+    AlertUdpliteLogRegisterTests();
 }
 
-typedef struct AlertFastLogThread_ {
+typedef struct AlertUdpliteLogThread_ {
     /** LogFileCtx has the pointer to the file and a mutex to allow multithreading */
     LogFileCtx* file_ctx;
-} AlertFastLogThread;
+} AlertUdpliteLogThread;
 
-int AlertFastLogCondition(ThreadVars *tv, const Packet *p)
+int AlertUdpliteLogCondition(ThreadVars *tv, const Packet *p)
 {
     return (p->alerts.cnt ? TRUE : FALSE);
 }
 
-static inline void AlertFastLogOutputAlert(AlertFastLogThread *aft, char *buffer,
+static inline void AlertUdpliteLogOutputAlert(AlertUdpliteLogThread *aft, char *buffer,
                                            int alert_size)
 {
     /* Output the alert string and count alerts. Only need to lock here. */
     aft->file_ctx->Write(buffer, alert_size, aft->file_ctx);
 }
 
-int AlertFastLogger(ThreadVars *tv, void *data, const Packet *p)
+int AlertUdpliteLogger(ThreadVars *tv, void *data, const Packet *p)
 {
-    AlertFastLogThread *aft = (AlertFastLogThread *)data;
+    AlertUdpliteLogThread *aft = (AlertUdpliteLogThread *)data;
     int i;
     char timebuf[64];
     int decoder_event = 0;
@@ -176,21 +176,21 @@ int AlertFastLogger(ThreadVars *tv, void *data, const Packet *p)
         }
 
         /* Write the alert to output file */
-        AlertFastLogOutputAlert(aft, alert_buffer, size);
+        AlertUdpliteLogOutputAlert(aft, alert_buffer, size);
     }
 
     return TM_ECODE_OK;
 }
 
-TmEcode AlertFastLogThreadInit(ThreadVars *t, const void *initdata, void **data)
+TmEcode AlertUdpliteLogThreadInit(ThreadVars *t, const void *initdata, void **data)
 {
-    AlertFastLogThread *aft = SCMalloc(sizeof(AlertFastLogThread));
+    AlertUdpliteLogThread *aft = SCMalloc(sizeof(AlertUdpliteLogThread));
     if (unlikely(aft == NULL))
         return TM_ECODE_FAILED;
-    memset(aft, 0, sizeof(AlertFastLogThread));
+    memset(aft, 0, sizeof(AlertUdpliteLogThread));
     if(initdata == NULL)
     {
-        SCLogDebug("Error getting context for AlertFastLog.  \"initdata\" argument NULL");
+        SCLogDebug("Error getting context for AlertUdpliteLog.  \"initdata\" argument NULL");
         SCFree(aft);
         return TM_ECODE_FAILED;
     }
@@ -201,15 +201,15 @@ TmEcode AlertFastLogThreadInit(ThreadVars *t, const void *initdata, void **data)
     return TM_ECODE_OK;
 }
 
-TmEcode AlertFastLogThreadDeinit(ThreadVars *t, void *data)
+TmEcode AlertUdpliteLogThreadDeinit(ThreadVars *t, void *data)
 {
-    AlertFastLogThread *aft = (AlertFastLogThread *)data;
+    AlertUdpliteLogThread *aft = (AlertUdpliteLogThread *)data;
     if (aft == NULL) {
         return TM_ECODE_OK;
     }
 
     /* clear memory */
-    memset(aft, 0, sizeof(AlertFastLogThread));
+    memset(aft, 0, sizeof(AlertUdpliteLogThread));
 
     SCFree(aft);
     return TM_ECODE_OK;
@@ -220,11 +220,11 @@ TmEcode AlertFastLogThreadDeinit(ThreadVars *t, void *data)
  * \param conf The configuration node for this output.
  * \return A LogFileCtx pointer on success, NULL on failure.
  */
-OutputCtx *AlertFastLogInitCtx(ConfNode *conf)
+OutputCtx *AlertUdpliteLogInitCtx(ConfNode *conf)
 {
     LogFileCtx *logfile_ctx = LogFileNewCtx();
     if (logfile_ctx == NULL) {
-        SCLogDebug("AlertFastLogInitCtx2: Could not create new LogFileCtx");
+        SCLogDebug("AlertUdpliteLogInitCtx2: Could not create new LogFileCtx");
         return NULL;
     }
 
@@ -237,12 +237,12 @@ OutputCtx *AlertFastLogInitCtx(ConfNode *conf)
     if (unlikely(output_ctx == NULL))
         return NULL;
     output_ctx->data = logfile_ctx;
-    output_ctx->DeInit = AlertFastLogDeInitCtx;
+    output_ctx->DeInit = AlertUdpliteLogDeInitCtx;
 
     return output_ctx;
 }
 
-static void AlertFastLogDeInitCtx(OutputCtx *output_ctx)
+static void AlertUdpliteLogDeInitCtx(OutputCtx *output_ctx)
 {
     LogFileCtx *logfile_ctx = (LogFileCtx *)output_ctx->data;
     LogFileFreeCtx(logfile_ctx);
@@ -253,7 +253,7 @@ static void AlertFastLogDeInitCtx(OutputCtx *output_ctx)
 
 #ifdef UNITTESTS
 
-static int AlertFastLogTest01(void)
+static int AlertUdpliteLogTest01(void)
 {
     int result = 0;
     uint8_t *buf = (uint8_t *) "GET /one/ HTTP/1.1\r\n"
@@ -278,7 +278,7 @@ static int AlertFastLogTest01(void)
     SCClassConfLoadClassficationConfigFile(de_ctx, fd);
 
     de_ctx->sig_list = SigInit(de_ctx, "alert tcp any any -> any any "
-            "(msg:\"FastLog test\"; content:\"GET\"; "
+            "(msg:\"UdpliteLog test\"; content:\"GET\"; "
             "Classtype:unknown; sid:1;)");
 
     SigGroupBuild(de_ctx);
@@ -298,7 +298,7 @@ static int AlertFastLogTest01(void)
     return result;
 }
 
-static int AlertFastLogTest02(void)
+static int AlertUdpliteLogTest02(void)
 {
     int result = 0;
     uint8_t *buf = (uint8_t *) "GET /one/ HTTP/1.1\r\n"
@@ -323,7 +323,7 @@ static int AlertFastLogTest02(void)
     SCClassConfLoadClassficationConfigFile(de_ctx, fd);
 
     de_ctx->sig_list = SigInit(de_ctx, "alert tcp any any -> any any "
-            "(msg:\"FastLog test\"; content:\"GET\"; "
+            "(msg:\"UdpliteLog test\"; content:\"GET\"; "
             "Classtype:unknown; sid:1;)");
 
     SigGroupBuild(de_ctx);
@@ -349,15 +349,15 @@ static int AlertFastLogTest02(void)
 #endif /* UNITTESTS */
 
 /**
- * \brief This function registers unit tests for AlertFastLog API.
+ * \brief This function registers unit tests for AlertUdpliteLog API.
  */
-void AlertFastLogRegisterTests(void)
+void AlertUdpliteLogRegisterTests(void)
 {
 
 #ifdef UNITTESTS
 
-    UtRegisterTest("AlertFastLogTest01", AlertFastLogTest01);
-    UtRegisterTest("AlertFastLogTest02", AlertFastLogTest02);
+    UtRegisterTest("AlertUdpliteLogTest01", AlertUdpliteLogTest01);
+    UtRegisterTest("AlertUdpliteLogTest02", AlertUdpliteLogTest02);
 
 #endif /* UNITTESTS */
 

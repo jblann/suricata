@@ -131,6 +131,11 @@ stats:
 # Configure the type of alert (and other) logging you would like.
 outputs:
   # a line based alerts log similar to Snort's fast.log
+  - udplite:
+      enabled: yes
+      filename: udplite.log
+      append: yes
+      #filetype: regular # 'regular', 'unix_stream' or 'unix_dgram'
   - fast:
       enabled: yes
       filename: fast.log
