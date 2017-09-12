@@ -242,6 +242,7 @@ detect-tag.c detect-tag.h \
 detect-target.c detect-target.h \
 detect-template.c detect-template.h \
 detect-template2.c detect-template2.h \
+detect-udplite_coverage.c detect-udplite_coverage.h \
 detect-spi.c detect-spi.h \
 detect-template-buffer.c detect-template-buffer.h \
 detect-threshold.c detect-threshold.h \
