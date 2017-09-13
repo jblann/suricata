@@ -380,6 +380,22 @@ static int LuaCallbackTuple(lua_State *luastate)
     return LuaCallbackTuplePushToStackFromPacket(luastate, p);
 }
 
+static int LuaCallbackUdpliteCoverage(lua_State *luastate)
+{
+    const Packet *p = LuaStateGetPacket(luastate);
+    if (p == NULL) {
+        return LuaCallbackError(luastate, "internal error: no packet");
+    }
+    if (p->udpliteh == NULL) {
+        return LuaCallbackError(luastate, "internal error: not udplite");
+        //lua_pushinteger(luastate, 0);
+    } else {
+        lua_pushinteger(luastate, ntohs(p->udpliteh->coverage));
+    }
+    return 1;
+}
+    
+
 /** \internal
  *  \brief fill lua stack with header info
  *  \param luastate the lua state
@@ -909,6 +925,9 @@ int LuaRegisterFunctions(lua_State *luastate)
     lua_setglobal(luastate, "SCFileInfo");
     lua_pushcfunction(luastate, LuaCallbackFileState);
     lua_setglobal(luastate, "SCFileState");
+
+    lua_pushcfunction(luastate, LuaCallbackUdpliteCoverage);
+    lua_setglobal(luastate, "SCPacketUdpliteCoverage");
 
     lua_pushcfunction(luastate, LuaCallbackThreadInfo);
     lua_setglobal(luastate, "SCThreadInfo");
