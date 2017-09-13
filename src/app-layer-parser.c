@@ -1390,6 +1390,20 @@ void AppLayerParserRegisterProtocolParsers(void)
     RegisterNTPParsers();
     RegisterTemplateParsers();
 
+    /** Training: EmergeRsync */
+    AppLayerProtoDetectRegisterProtocol(ALPROTO_RSYNC, "rsync");
+    if (AppLayerProtoDetectConfProtoDetectionEnabled("tcp", "rsync")) {
+        if (AppLayerProtoDetectPMRegisterPatternCS(IPPROTO_TCP, ALPROTO_RSYNC,
+                        "@RSYNCD", 7, 0, STREAM_TOSERVER) < 0)
+        {
+            SCLogNotice("rsync proto registration failure\n");
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        SCLogInfo("Protocol detection and parser disabled for %s protocol.",
+                "rsync");
+    }
+
     /** IMAP */
     AppLayerProtoDetectRegisterProtocol(ALPROTO_IMAP, "imap");
     if (AppLayerProtoDetectConfProtoDetectionEnabled("tcp", "imap")) {

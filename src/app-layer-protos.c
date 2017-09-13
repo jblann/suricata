@@ -51,6 +51,9 @@ const char *AppProtoToString(AppProto alproto)
         case ALPROTO_IMAP:
             proto_name = "imap";
             break;
+        case ALPROTO_RSYNC:
+            proto_name = "rsync";
+            break;
         case ALPROTO_MSN:
             proto_name = "msn";
             break;
