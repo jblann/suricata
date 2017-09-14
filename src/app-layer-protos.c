@@ -90,6 +90,9 @@ const char *AppProtoToString(AppProto alproto)
         case ALPROTO_NTP:
             proto_name = "ntp";
             break;
+        case ALPROTO_GOPHER:
+            proto_name = "gopher";
+            break;
         case ALPROTO_TEMPLATE:
             proto_name = "template";
             break;
