@@ -248,6 +248,7 @@ detect-coverage2.c detect-coverage2.h \
 detect-udplite_coverage.c detect-udplite_coverage.h \
 detect-spi.c detect-spi.h \
 detect-gopher-buffer.c detect-gopher-buffer.h \
+detect-gopher-listing.c detect-gopher-listing.h \
 detect-template-buffer.c detect-template-buffer.h \
 detect-threshold.c detect-threshold.h \
 detect-tls.c detect-tls.h \
