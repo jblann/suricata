@@ -49,7 +49,7 @@ static int g_gopher_buffer_id = 0;
 
 void DetectGopherListingRegister(void)
 {
-    sigmatch_table[DETECT_AL_GOPHER_LISTING].name = "gopher_buffer";
+    sigmatch_table[DETECT_AL_GOPHER_LISTING].name = "gopher_listing";
     sigmatch_table[DETECT_AL_GOPHER_LISTING].desc =
         "Gopher content modififier to match on the gopher buffers";
     sigmatch_table[DETECT_AL_GOPHER_LISTING].Setup = DetectGopherListingSetup;
@@ -58,11 +58,7 @@ void DetectGopherListingRegister(void)
 
     sigmatch_table[DETECT_AL_GOPHER_LISTING].flags |= SIGMATCH_NOOPT;
 
-    /* register inspect engines */
-    DetectAppLayerInspectEngineRegister("gopher_buffer",
-            ALPROTO_GOPHER, SIG_FLAG_TOSERVER, 0,
-            DetectEngineInspectGopherListing);
-    DetectAppLayerInspectEngineRegister("gopher_buffer",
+    DetectAppLayerInspectEngineRegister("gopher_listing",
             ALPROTO_GOPHER, SIG_FLAG_TOCLIENT, 0,
             DetectEngineInspectGopherListing);
 
@@ -90,12 +86,12 @@ static int DetectEngineInspectGopherListing(ThreadVars *tv,
     GopherTransaction *tx = (GopherTransaction *)txv;
     int ret = 0;
 
-    if (flags & STREAM_TOSERVER && tx->request_buffer != NULL) {
-        ret = DetectEngineContentInspection(de_ctx, det_ctx, s, smd,
-            f, tx->request_buffer, tx->request_buffer_len, 0,
-            DETECT_ENGINE_CONTENT_INSPECTION_MODE_STATE, NULL);
+    /* Only run detection if this is a listing. */
+    if (tx->request_buffer_len > 2) {
+        return 0;
     }
-    else if (flags & STREAM_TOCLIENT && tx->response_buffer != NULL) {
+
+    if (flags & STREAM_TOCLIENT && tx->response_buffer != NULL) {
         ret = DetectEngineContentInspection(de_ctx, det_ctx, s, smd,
             f, tx->response_buffer, tx->response_buffer_len, 0,
             DETECT_ENGINE_CONTENT_INSPECTION_MODE_STATE, NULL);
