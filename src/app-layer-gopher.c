@@ -313,7 +313,11 @@ static int GopherParseResponse(Flow *f, void *state, AppLayerParserState *pstate
 
     if (input == NULL && input_len > 0) {
         SCLogNotice("WE HAVE A GAP!!");
-        exit(9);
+        TAILQ_FOREACH(ttx, &echo->tx_list, next) {
+            tx = ttx;
+        }
+        tx->gap = 1;
+        return 0;
     }
 
     /* Probably don't want to create a transaction in this case

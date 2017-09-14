@@ -39,6 +39,7 @@ typedef struct GopherTransaction_ {
                                             * events that occurred
                                             * while parsing this
                                             * transaction. */
+    uint8_t gap;
 
     uint8_t *request_buffer;
     uint32_t request_buffer_len;

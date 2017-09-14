@@ -93,6 +93,10 @@ static int JsonGopherLogger(ThreadVars *tv, void *thread_data,
         SCFree(request_buffer);
     }
 
+    if (gophertx->gap) {
+        json_object_set_new(gopherjs, "gap", json_boolean(1));
+    }
+
     if (gophertx->request_buffer_len &&
             (gophertx->request_buffer[0] == 0x0d ||
                     gophertx->request_buffer[0] == 0x0a)) {
