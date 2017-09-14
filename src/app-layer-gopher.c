@@ -38,6 +38,7 @@
 #include "conf.h"
 
 #include "util-unittest.h"
+#include "util-print.h"
 
 #include "app-layer-detect-proto.h"
 #include "app-layer-parser.h"
@@ -46,7 +47,7 @@
 
 /* The default port to probe for echo traffic if not provided in the
  * configuration file. */
-#define GOPHER_DEFAULT_PORT "7"
+#define GOPHER_DEFAULT_PORT "70"
 
 /* The minimum size for an echo message. For some protocols this might
  * be the size of a header. */
@@ -204,11 +205,21 @@ static int GopherHasEvents(void *state)
 static AppProto GopherProbingParser(uint8_t *input, uint32_t input_len,
     uint32_t *offset)
 {
-    /* Very simple test - if there is input, this is echo. */
+    SCLogNotice("GopherProbingParser");
+    PrintRawDataFp(stdout, input, input_len);
+
+    if (BasicSearch(input, input_len, (void *)"\n", 1) != NULL) {
+        SCLogNotice("Found line feed, we are GOPHER!");
+        return ALPROTO_GOPHER;
+    }
+
+#if 0
+    /* Very simple test - if there is input, this is gopher. */
     if (input_len >= GOPHER_MIN_FRAME_LEN) {
         SCLogNotice("Detected as ALPROTO_GOPHER.");
         return ALPROTO_GOPHER;
     }
+#endif
 
     SCLogNotice("Protocol not detected as ALPROTO_GOPHER.");
     return ALPROTO_UNKNOWN;
@@ -233,6 +244,22 @@ static int GopherParseRequest(Flow *f, void *state,
     if (input == NULL || input_len == 0) {
         return 0;
     }
+
+    /* Look for a line feed to make sure we have a complete
+     * message. */
+    uint8_t *ep = BasicSearch(input, input_len, (void *)"\n", 1);
+    if (ep == NULL) {
+        SCLogNotice("End of request marker not found. Need buffering.");
+        exit(9);
+    }
+
+    if (((ep - input) + 1) < input_len) {
+        SCLogNotice("We have data after end of record. Need buffering.");
+        exit(9);
+    }
+
+    uint8_t *data_start = input;
+    uint32_t data_len = ep - input + 1;
 
     /* Normally you would parse out data here and store it in the
      * transaction object, but as this is echo, we'll just record the
@@ -260,15 +287,19 @@ static int GopherParseRequest(Flow *f, void *state,
         goto end;
     }
     SCLogNotice("Allocated Gopher tx %"PRIu64".", tx->tx_id);
-    
+
     /* Make a copy of the request. */
-    tx->request_buffer = SCCalloc(1, input_len);
+    tx->request_buffer = SCCalloc(1, data_len);
     if (unlikely(tx->request_buffer == NULL)) {
         goto end;
     }
-    memcpy(tx->request_buffer, input, input_len);
-    tx->request_buffer_len = input_len;
+    memcpy(tx->request_buffer, data_start, data_len);
+    tx->request_buffer_len = data_len;
 
+    fprintf(stdout, "Request:\n");
+    PrintRawDataFp(stdout, tx->request_buffer, tx->request_buffer_len);
+
+#if 0
     /* Here we check for an empty message and create an app-layer
      * event. */
     if ((input_len == 1 && tx->request_buffer[0] == '\n') ||
@@ -278,8 +309,9 @@ static int GopherParseRequest(Flow *f, void *state,
             GOPHER_DECODER_EVENT_EMPTY_MESSAGE);
         echo->events++;
     }
+#endif
 
-end:    
+end:
     return 0;
 }
 
@@ -289,12 +321,31 @@ static int GopherParseResponse(Flow *f, void *state, AppLayerParserState *pstate
     GopherState *echo = state;
     GopherTransaction *tx = NULL, *ttx;;
 
-    SCLogNotice("Parsing Gopher response.");
+    SCLogNotice("Parsing Gopher response: len=%u", input_len);
+    /* PrintRawDataFp(stdout, input, input_len); */
 
     /* Likely connection closed, we can just return here. */
     if ((input == NULL || input_len == 0) &&
         AppLayerParserStateIssetFlag(pstate, APP_LAYER_PARSER_EOF)) {
+
+        /* Get the last transaction... */
+        TAILQ_FOREACH(ttx, &echo->tx_list, next) {
+            tx = ttx;
+        }
+        SCLogNotice("EOF, completing transaction.");
+        tx->response_done = 1;
+
+        fprintf(stdout, "Completed Request:\n");
+        PrintRawDataFp(stdout, tx->request_buffer, tx->request_buffer_len);
+        fprintf(stdout, "Completed Response:\n");
+        PrintRawDataFp(stdout, tx->response_buffer, tx->response_buffer_len);
+
         return 0;
+    }
+
+    if (input == NULL && input_len > 0) {
+        SCLogNotice("WE HAVE A GAP!!");
+        exit(9);
     }
 
     /* Probably don't want to create a transaction in this case
@@ -313,7 +364,7 @@ static int GopherParseResponse(Flow *f, void *state, AppLayerParserState *pstate
     TAILQ_FOREACH(ttx, &echo->tx_list, next) {
         tx = ttx;
     }
-    
+
     if (tx == NULL) {
         SCLogNotice("Failed to find transaction for response on echo state %p.",
             echo);
@@ -329,23 +380,52 @@ static int GopherParseResponse(Flow *f, void *state, AppLayerParserState *pstate
      * In this case, we just log that there is existing data and free it. But
      * you might want to realloc the buffer and append the data.
      */
+#if 0
     if (tx->response_buffer != NULL) {
         SCLogNotice("WARNING: Transaction already has response data, "
             "existing data will be overwritten.");
         SCFree(tx->response_buffer);
     }
+#endif
 
-    /* Make a copy of the response. */
-    tx->response_buffer = SCCalloc(1, input_len);
-    if (unlikely(tx->response_buffer == NULL)) {
-        goto end;
+    if (tx->response_buffer != NULL) {
+        SCLogNotice("We already have response data, lets append the new data.");
+        uint8_t *new = SCRealloc(tx->response_buffer,
+                tx->response_buffer_len + input_len);
+        if (new == NULL) {
+            SCLogNotice("realloc failed");
+            exit(1);
+        }
+        tx->response_buffer = new;
+        memcpy(tx->response_buffer + tx->response_buffer_len, input, input_len);
+        tx->response_buffer_len += input_len;
+    } else {
+        /* Make a copy of the response. */
+        tx->response_buffer = SCCalloc(1, input_len);
+        if (unlikely(tx->response_buffer == NULL)) {
+            goto end;
+        }
+        memcpy(tx->response_buffer, input, input_len);
+        tx->response_buffer_len = input_len;
     }
-    memcpy(tx->response_buffer, input, input_len);
-    tx->response_buffer_len = input_len;
 
-    /* Set the response_done flag for transaction state checking in
-     * GopherGetStateProgress(). */
-    tx->response_done = 1;
+#if 0
+    /* Do we have an end of record marker? */
+    if (tx->response_buffer[tx->response_buffer_len - 3] == 0x2e &&
+        tx->response_buffer[tx->response_buffer_len - 2] == 0x0d &&
+        tx->response_buffer[tx->response_buffer_len - 1] == 0x0a) {
+        fprintf(stdout, "Completed Request:\n");
+        PrintRawDataFp(stdout, tx->request_buffer, tx->request_buffer_len);
+        fprintf(stdout, "Completed Response:\n");
+        PrintRawDataFp(stdout, tx->response_buffer, tx->response_buffer_len);
+
+        /* Set the response_done flag for transaction state checking in
+         * GopherGetStateProgress(). */
+        tx->response_done = 1;
+    } else {
+        SCLogNotice("Parsed response, but waiting for end of response.");
+    }
+#endif
 
 end:
     return 0;
@@ -496,7 +576,7 @@ void RegisterGopherParsers(void)
         return;
     }
 
-    if (AppLayerParserConfParserEnabled("udp", proto_name)) {
+    if (AppLayerParserConfParserEnabled("tcp", proto_name)) {
 
         SCLogNotice("Registering Gopher protocol parser.");
 
@@ -545,6 +625,10 @@ void RegisterGopherParsers(void)
             GopherStateGetEventInfo);
         AppLayerParserRegisterGetEventsFunc(IPPROTO_TCP, ALPROTO_GOPHER,
             GopherGetEvents);
+
+        /* This parser accepts gaps. */
+        AppLayerParserRegisterOptionFlags(IPPROTO_TCP, ALPROTO_GOPHER,
+                APP_LAYER_PARSER_OPT_ACCEPT_GAPS);
     }
     else {
         SCLogNotice("Gopher protocol parsing disabled.");
