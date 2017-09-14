@@ -93,6 +93,22 @@ static int JsonGopherLogger(ThreadVars *tv, void *thread_data,
         SCFree(request_buffer);
     }
 
+    if (gophertx->request_buffer_len &&
+            (gophertx->request_buffer[0] == 0x0d ||
+                    gophertx->request_buffer[0] == 0x0a)) {
+        json_object_set_new(gopherjs, "request_type",
+                json_string("directory-listing"));
+    } else {
+        json_object_set_new(gopherjs, "request_type",
+                json_string("uri"));
+        char *url = BytesToString(gophertx->request_buffer,
+                gophertx->request_buffer_len - 2);
+        if (url != NULL) {
+            json_object_set_new(gopherjs, "uri", json_string(url));
+            SCFree(url);
+        }
+    }
+
     /* Convert the response buffer to a string then log. */
     char *response_buffer = BytesToString(gophertx->response_buffer,
         gophertx->response_buffer_len);
