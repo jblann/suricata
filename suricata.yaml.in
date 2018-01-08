@@ -459,8 +459,22 @@ outputs:
       version: 2
       enabled: no
 
+      # Write out a fileinfo record for each occurrence of a
+      # file. Disabled by default as each occurrence is already logged
+      # as a fileinfo record to the main eve-log.
+      #write-fileinfo: yes
+
       # Force storing of all files. Default: no.
       #force-filestore: yes
+
+      # Override the global stream-depth for sessions in which we want
+      # to perform file extraction. Set to 0 for unlimited.
+      #stream-depth: 0
+
+      # Uncomment the following variable to define how many files can
+      # remain open for filestore by Suricata. Default value is 0 which
+      # means files get closed after each write
+      #max-open-files: 1000
 
   # output module to log files tracked in a easily parsable json format
   - file-log:
