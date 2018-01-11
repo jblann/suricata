@@ -778,7 +778,7 @@ static void AlertPreludeDeinitCtx(OutputCtx *output_ctx)
  *
  * \return A newly allocated AlertPreludeCtx structure, or NULL
  */
-static OutputCtx *AlertPreludeInitCtx(ConfNode *conf)
+static OutputInitResultAlertPreludeInitCtx(ConfNode *conf)
 {
     int ret;
     prelude_client_t *client;

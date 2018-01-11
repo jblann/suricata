@@ -133,7 +133,7 @@ static void OutputNFSLogDeInitCtxSub(OutputCtx *output_ctx)
     SCFree(output_ctx);
 }
 
-static OutputCtx *OutputNFSLogInitSub(ConfNode *conf,
+static OutputInitResultOutputNFSLogInitSub(ConfNode *conf,
     OutputCtx *parent_ctx)
 {
     OutputJsonCtx *ajt = parent_ctx->data;
