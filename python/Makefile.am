@@ -1,6 +1,7 @@
 EXTRA_DIST =	setup.py \
 		bin \
-		suricata
+		suricata \
+		suricatasc
 
 if HAVE_PYTHON
 all-local:
